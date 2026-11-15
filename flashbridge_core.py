@@ -461,19 +461,38 @@ class JoinedDisk:
         return self.read_raw(self.plan.fat.offset + offset, length)
 
     def _write_aligned_one(self, dev, offset, content):
-        if not content: return
-        start = (offset // ALIGN)*ALIGN
-        end = ((offset + len(content) + ALIGN - 1)//ALIGN)*ALIGN
-        if end > dev.size:
-            raise RuntimeError('Media boundary is not 4KiB aligned; write blocked.')
-        # For partial edge sectors preserve bytes outside logical write.
-        if offset == start and end == offset + len(content):
-            dev.write_at(start, content)
+        """Preserve only misaligned 4KiB edge blocks; stream aligned interior.
+
+        A volume whose byte offset is 2KiB modulo 4KiB makes almost all
+        1MiB proxy chunks misaligned. Reading and rewriting the *entire*
+        aligned megabyte was unnecessary and slow. At most two 4KiB edge
+        blocks need pre-reading; the interior can be written directly.
+        """
+        if not content:
             return
-        prefix = dev.read_at(start, end - start)
-        patched = bytearray(prefix)
-        patched[offset - start:offset - start + len(content)] = content
-        dev.write_at(start, bytes(patched))
+        end = offset + len(content)
+        if offset < 0 or end > dev.size or ((end + ALIGN - 1)//ALIGN)*ALIGN > dev.size:
+            raise ValueError('Physical write would exceed medium bounds')
+        cursor = 0
+        misaligned = offset % ALIGN
+        if misaligned:
+            edge_start = offset - misaligned
+            n = min(ALIGN - misaligned, len(content))
+            edge = bytearray(dev.read_at(edge_start, ALIGN))
+            edge[misaligned:misaligned+n] = content[:n]
+            dev.write_at(edge_start, bytes(edge))
+            cursor = n
+            offset += n
+        full = ((len(content) - cursor)//ALIGN)*ALIGN
+        if full:
+            dev.write_at(offset, content[cursor:cursor+full])
+            cursor += full
+            offset += full
+        if cursor < len(content):
+            edge = bytearray(dev.read_at(offset, ALIGN))
+            n = len(content) - cursor
+            edge[:n] = content[cursor:]
+            dev.write_at(offset, bytes(edge))
 
     def write_volume(self, offset, payload):
         if not self.writable:

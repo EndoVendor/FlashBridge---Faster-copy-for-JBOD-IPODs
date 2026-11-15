@@ -154,6 +154,26 @@ class FlashBridgeTests(unittest.TestCase):
         finally:
             j.close()
 
+    def test_large_misaligned_write_reads_only_edge_sectors(self):
+        j = JoinedDisk(self.plan, True, self.fixture.factory)
+        calls=[]
+        read_at=j.a.read_at
+        try:
+            def spy(pos, count):
+                calls.append((pos, count))
+                return read_at(pos,count)
+            j.a.read_at=spy
+            # Synthetic volume begins on 4KiB, deliberately shift logical
+            # write by 2KiB as in the real 1.5TB iPod BPB layout.
+            pos=4*MIB+2048
+            payload=b'Z' * MIB
+            j.write_volume(pos, payload)
+            self.assertEqual([n for _,n in calls], [4096,4096])
+            j.a.read_at=read_at
+            self.assertEqual(j.read_volume(pos,len(payload)), payload)
+        finally:
+            j.close()
+
     def test_read_only_device_rejects_write(self):
         j=JoinedDisk(self.plan,False,self.fixture.factory)
         try:

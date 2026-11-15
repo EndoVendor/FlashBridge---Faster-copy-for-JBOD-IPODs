@@ -38,7 +38,7 @@ svazek; opravy bez diagnózy nespouštěj.
 ## Optimalizace výkonu v0.2.1
 
 Každý úspěšný zápis je pořád synchronizován a úplně zpětně přečten s porovnáním
-SHA-256. Nově se synchronizuje **jen dotčená fyzická karta**, obě pouze při
+SHA-256. Předčítají se nově jen dva krajní neúplné 4KiB bloky, nikoliv celý přibližně 1MiB zápis při 2KiB posunu FAT32. Nově se synchronizuje **jen dotčená fyzická karta**, obě pouze při
 překročení jejich hranice. V JSONL logu jsou časy `receive_ms`,
 `physical_write_ms`, `flush_ms`, `readback_ms` a `flushed_media`.
 Sekvenční JBOD nezapisuje běžně na obě karty současně. Zvýšení rychlosti zatím
@@ -80,7 +80,7 @@ CI testuje syntetická média na Windows a Linuxu. Neověřuje reálné přenoso
 **Licence:** [MIT](LICENSE) pro zdrojový kód FlashBridge. Windows a ImDisk jsou samostatné produkty s vlastními licencemi. Balíček neobsahuje podepsaný `.exe` a zatím nejde o produkčně certifikovanou aplikaci.
 
 
-**Klasifikace vydání: Partially tested.** V lokálním prostředí prošlo 20 syntetických testů. Automatická detekce dvojice reálných karet byla ověřena ve vývojovém scénáři. Publikovaná alfa verze nemá nezávislé ověření kombinace Windows/ImDisk/USB a fyzické RW zůstává experimentální. Bez záruky zvýšení výkonu nebo bezpečnosti dat.
+**Klasifikace vydání: Partially tested.** V lokálním prostředí prošlo 21 syntetických testů. Automatická detekce dvojice reálných karet byla ověřena ve vývojovém scénáři. Publikovaná alfa verze nemá nezávislé ověření kombinace Windows/ImDisk/USB a fyzické RW zůstává experimentální. Bez záruky zvýšení výkonu nebo bezpečnosti dat.
 
 ### Analýza rychlosti (pouze čtení logu)
 

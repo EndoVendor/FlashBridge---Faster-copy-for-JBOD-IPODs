@@ -40,7 +40,7 @@ filesystem consistency with suitable read-only tooling before any repair.
 
 Every accepted write still receives a physical flush and full post-flush
 SHA-256 readback before successful acknowledgement. To avoid an unnecessary
-flush, this version syncs **only the physical card touched** by a write, or
+flush, this version preserves only the two misaligned 4KiB edge sectors instead of pre-reading an entire megabyte when the FAT32 volume is shifted by 2KiB. It also syncs **only the physical card touched** by a write, or
 both when the request crosses the card boundary. `IO_END` JSONL records now
 include `receive_ms`, `physical_write_ms`, `flush_ms`, `readback_ms` and
 `flushed_media` so bottlenecks can be quantified. This does not make the two
@@ -83,7 +83,7 @@ CI runs these tests on Windows and Linux using synthetic sparse-file media. It d
 
 ## Release and licensing
 
-**Release classification: Partially tested.** 20 synthetic unit tests passed locally; read-only two-card discovery was exercised in a development scenario. The public codebase has not passed independent Windows/ImDisk/USB integration testing, and physical RW operation remains experimental. No general performance or data-safety guarantees are made.
+**Release classification: Partially tested.** 21 synthetic unit tests passed locally; read-only two-card discovery was exercised in a development scenario. The public codebase has not passed independent Windows/ImDisk/USB integration testing, and physical RW operation remains experimental. No general performance or data-safety guarantees are made.
 
 
 Source code is available under the [MIT License](LICENSE). ImDisk and Windows are external prerequisites with their own terms. This release is a **GitHub-ready source tree**, not a signed `.exe` or hardware-certified production release. Feedback and test reports are welcome; do not benchmark against real data without understanding the raw-write risk.
