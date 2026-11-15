@@ -223,6 +223,7 @@ class FlashBridgeTests(unittest.TestCase):
         srv.stop();srv.join(5)
         self.assertFalse(srv.is_alive())
         srv.close_devices()
+        log.close()
 
     def test_proxy_large_write_66mib_and_flush_readback(self):
         log=make_logger(directory=self.fixture.root)
@@ -259,6 +260,7 @@ class FlashBridgeTests(unittest.TestCase):
         self.assertFalse(srv.failed,srv.last_error)
         self.assertEqual(srv.bytes_written,66*MIB)
         srv.close_devices()
+        log.close()
         text=(list((self.fixture.root/'logs').glob('*.jsonl'))[0]).read_text()
         self.assertIn('IO_END',text)
         self.assertIn('flush_completed',text)

@@ -30,6 +30,7 @@ class ReleaseGuardsTests(unittest.TestCase):
             self.assertTrue(Path(str(path)+'.1').exists())
             self.assertTrue(Path(str(path)+'.2').exists())
             self.assertFalse(Path(str(path)+'.3').exists())
+            lg.close()
 
     def test_proxy_can_bind_ephemeral_localhost_port(self):
         fixture = Fixture()
@@ -52,6 +53,7 @@ class ReleaseGuardsTests(unittest.TestCase):
             srv.join(5)
             self.assertFalse(srv.is_alive())
             srv.close_devices()
+            log.close()
         finally:
             fixture.close()
 

@@ -98,6 +98,14 @@ class RunLog:
             if visible:
                 self.on_event(record)
 
+    def close(self):
+        """Deterministically release log handles (required on Windows)."""
+        with self.lock:
+            for handler in list(self.logger.handlers):
+                handler.flush()
+                handler.close()
+                self.logger.removeHandler(handler)
+
     def info(self, kind, **fields): self.event(kind, 'info', **fields)
     def warning(self, kind, **fields): self.event(kind, 'warning', **fields)
     def error(self, kind, **fields): self.event(kind, 'error', **fields)

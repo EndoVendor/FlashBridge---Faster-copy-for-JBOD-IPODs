@@ -542,6 +542,8 @@ class BridgeApp:
         if self.mounted or (self.server and (self.server.is_alive() or self.server.dev)):
             messagebox.showwarning(self.t('close_block_title'), self.t('close_block'))
             return
+        self.log.info('APPLICATION_EXIT')
+        self.log.close()
         self.root.destroy()
 
 

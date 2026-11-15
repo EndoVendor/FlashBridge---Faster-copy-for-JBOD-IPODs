@@ -1,6 +1,7 @@
 # Changelog
 
 ## v0.2.1-alpha — partially tested
+- Closed logger file handles deterministically at GUI exit; prevents Windows temp-file locking in CI.
 - Eliminated flush on untouched card for each successful write request.
 - Added independent phase timings and touched-media details to JSONL write logs.
 - Documented unresolved deletion/zero-byte-entry symptom as a known critical issue.
