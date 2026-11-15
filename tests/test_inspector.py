@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from flashbridge_core import DiskInfo
 from flashbridge_inspector import capture_snapshot,compare_live_ipod,load_snapshot,SCHEMA,_parts
-from flashbridge_imdisk_setup import VendorRedirect, ALLOWED_HOST
+from flashbridge_imdisk_setup import VendorRedirect, ALLOWED_HOST, authenticode_vendor
 
 MB=1024*1024
 
@@ -129,6 +129,22 @@ class InspectorTests(unittest.TestCase):
             path.write_text(json.dumps(a))
             with self.assertRaises(ValueError):
                 load_snapshot(path)
+
+    def test_imdisk_accepts_verified_vendor_legal_name(self):
+        from types import SimpleNamespace
+        output=json.dumps({'Status':'Valid','Subject':'CN=Lagerkvist Teknisk Rådgivning i Borås HB, O=Sweden'})
+        with patch('flashbridge_imdisk_setup.os.name','nt'), \
+             patch('flashbridge_imdisk_setup.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=output)):
+            result=authenticode_vendor(Path('C:/test/imdiskinst.exe'))
+        self.assertEqual(result['Status'],'Valid')
+
+    def test_imdisk_rejects_unrelated_signed_publisher(self):
+        from types import SimpleNamespace
+        output=json.dumps({'Status':'Valid','Subject':'CN=Unrelated Software Inc'})
+        with patch('flashbridge_imdisk_setup.os.name','nt'), \
+             patch('flashbridge_imdisk_setup.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=output)):
+            with self.assertRaises(PermissionError):
+                authenticode_vendor(Path('C:/test/imdiskinst.exe'))
 
     def test_imdisk_redirects_only_vendor_host(self):
         with self.assertRaises(ValueError):

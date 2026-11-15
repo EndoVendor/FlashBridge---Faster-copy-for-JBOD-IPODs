@@ -78,7 +78,7 @@ def authenticode_vendor(path: Path):
     if p.returncode: raise RuntimeError('Windows could not inspect installer signature.')
     info=json.loads(p.stdout.lstrip('\ufeff'))
     signed=info.get('Status')=='Valid'
-    vendor=any(k in info.get('Subject','').lower() for k in ('ltr data','olof lagerkvist'))
+    vendor=any(k in info.get('Subject','').lower() for k in ('ltr data','olof lagerkvist','lagerkvist teknisk'))
     if not signed or not vendor:
         raise PermissionError('Installer signature/publisher not verified; no automatic execution. '
                               'Use the official vendor page for manual installation.')
