@@ -8,7 +8,7 @@
 
 **Správce dvoukartového FAT32 JBOD pro Windows** · [English](README.md) · [Poznámky k vydání](RELEASE_NOTES.md)
 
-**Klasifikace: ČÁSTEČNĚ TESTOVANÝ KANDIDÁT NA VYDÁNÍ.** FlashBridge neopravuje souborový systém a experimentální přímý zápis neprošel nezávislou hardwarovou přejímkou. **Není vhodný pro jedinou kopii důležitých dat.** V této verzi jsou nové, na skutečných Windows dosud neověřené úpravy GUI a chybového postupu odpojení; fyzický I/O engine zůstává z v0.3.2-alpha.
+**Stav: TÉMĚŘ FINÁLNÍ RELEASE CANDIDATE — EXPERIMENTÁLNÍ SOFTWARE POSKYTOVANÝ „TAK, JAK JE“, BEZ ZÁRUKY.** Windows EXE bylo sestaveno a použito pro skutečné přenosy na vývojové konfiguraci; **nejde však o stabilní ani hardwarově certifikované vydání**. Inspektor, průvodce instalací ImDisku a řešení blokovaného odpojení ještě potřebují hardwarovou přejímku. FlashBridge neopravuje FAT32. **Nepoužívej jedinou kopii důležitých dat.** Fyzický zápisový engine je stejný jako v0.3.2-alpha. Viz [vyloučení záruk v licenci MIT](LICENSE) a [bezpečnostní omezení](SECURITY.cs.md).
 
 ## Co aplikace dělá
 

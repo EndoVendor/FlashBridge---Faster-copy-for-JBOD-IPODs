@@ -8,7 +8,7 @@
 
 **Two-card FAT32 JBOD manager for Windows** · [Česky](README.cs.md) · [Release notes](RELEASE_NOTES.md)
 
-**Release classification: PARTIALLY TESTED RELEASE CANDIDATE.** FlashBridge is not a filesystem repair tool and its experimental raw-write mode has not undergone independent hardware qualification. **Do not use the only copy of important data.** The release candidate includes untested changes to the GUI and the unmount error handling; its physical read/write engine is unchanged from v0.3.2-alpha.
+**Status: NEAR-FINAL RELEASE CANDIDATE — EXPERIMENTAL, PROVIDED "AS IS", WITHOUT WARRANTY.** The Windows EXE has been built and used for real transfers in a development setup, but this is **not a stable, hardware-certified or universally supported release**. The new inspector, ImDisk installer assistant and blocked-unmount recovery still need hardware acceptance. FlashBridge does not repair FAT32. **Never use the only copy of important data.** The physical read/write engine is unchanged from v0.3.2-alpha. See the [MIT warranty disclaimer](LICENSE) and [security limits](SECURITY.md).
 
 ## What it is
 

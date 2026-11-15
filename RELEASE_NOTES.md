@@ -1,6 +1,6 @@
 # FlashBridge v0.3.3-rc2 — PARTIALLY TESTED / ČÁSTEČNĚ TESTOVÁNO
 
-**Release candidate, not a stable or hardware-certified release.**
+**Near-final release candidate — experimental software provided "AS IS" without warranty under the MIT license.** It is not a stable, certified or universally compatible disk utility. Back up important data; do not use the only copy.
 
 - Removed the optional Music/Audiobooks missing-only copy wizard **from the GUI**. Copy ordinary files using Windows File Explorer / Total Commander instead. Internal compatibility code remains for tests.
 - Added a bilingual, six-tab **Help & safety / Nápověda a bezpečnost** information toolbox covering requirements, workflow, safe unmount, safety and diagnostic logs.
@@ -9,7 +9,7 @@
 - Rewrote English and Czech README for users, including known risks, first-run guide and physical-medium removal precautions.
 - **No changes to the physical write path** from v0.3.2-alpha (sector-aware writes, Fast/Verified, synchronous flush, fail-closed faults).
 
-Validation: synthetic tests and source compilation on Linux; native Windows GUI/ImDisk behavior and EXE build **not yet independently verified**. Do not package this candidate as stable until Windows build and disposable-media acceptance tests succeed.
+Validation: **62 synthetic tests passed** on Windows and Linux, using Python 3.10 and 3.13. A real Windows x64 EXE was built successfully by GitHub Actions (run #43717489315); a development user ran rc2 elevated on Windows with actual physical-card writes and supplied a timestamped diagnostic log. **Still not verified:** independent disposable-media recovery/integrity testing, the inspector with a live assembled iPod, opt-in ImDisk installer on a target PC, and blocked-unmount retry. Do not label this release stable before those gates are satisfied.
 
 ### rc2 additions
 
