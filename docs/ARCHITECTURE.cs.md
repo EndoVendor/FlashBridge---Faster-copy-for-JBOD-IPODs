@@ -66,3 +66,12 @@ Nedochází ke spekulativnímu zápisu ani k automatickému opakování zápisu 
 ### v0.3.3-rc1: rozhraní a EXE
 
 Kopírovací průvodce Music/Audiobooks byl odstraněn z GUI; pomocná funkce v knihovně zůstává jen kvůli kompatibilitě/testům. Odpojování nadále používá bezpečný `imdisk -d`, kontroluje identitu virtuální jednotky, při odmítnutí ponechává proxy i fyzické disky a nabízí opakování po zavření správců souborů. `-D`/`-R` ani ukončování procesů se nepoužívá. Build Windows EXE je ve workflow `windows-exe.yml`; ImDisk zůstává vnější závislostí. Fyzický zápisový engine je beze změny.
+
+
+### v0.3.3-rc2 — nedestruktivní inspektor a instalace závislosti
+
+Modul flashbridge_inspector.py je oddělený od připojené ImDisk proxy. Vybraný PhysicalDrive otevírá pouze pro čtení a ukládá SHA-256 malých vzorků, kapacitu, hlášenou geometrii sektorů, MBR oddíly a omezené vzorky FAT32. Postup má tři části: otisk karty A → otisk karty B → samostatný otisk a porovnání sestaveného iPodu přes USB. Zkouší obě **lineární** pořadí, avšak ani shoda neprokazuje model adaptéru, bootovatelnost, úplnou integritu a nikdy nepovoluje RW.
+
+Modul flashbridge_imdisk_setup.py může po výslovném souhlasu stáhnout instalační EXE z oficiálního HTTPS hostitele LTR Data do prázdné dočasné složky. Spuštění vyžaduje platný Authenticode podpis očekávaného vydavatele; PyInstaller EXE ovladač ImDisk neobsahuje.
+
+Přesný postup a popisky ovládání viz [český návod](USER_GUIDE.cs.md) a [English guide](USER_GUIDE.md).

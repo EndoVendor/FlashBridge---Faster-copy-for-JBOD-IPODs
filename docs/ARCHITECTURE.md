@@ -53,7 +53,7 @@ This mechanism **does not** provide atomicity or journaling across FAT tables, c
 
 ## Copy semantics
 
-The legacy non-GUI library copy helper (not exposed in v0.3.3-rc1) scans only `Music` and `Audiobooks`. It plans missing target paths, skips existing paths regardless of their contents, and skips files above FAT32's maximum file size. New files are written to `*.flashbridge.partial`, optionally verified by SHA-256, and then renamed. Existing partials are resumed only after comparing their prefix with source. This does not repair files left with their *final* names by other copy tools.
+The legacy non-GUI library copy helper (not exposed in v0.3.3-rc2) scans only `Music` and `Audiobooks`. It plans missing target paths, skips existing paths regardless of their contents, and skips files above FAT32's maximum file size. New files are written to `*.flashbridge.partial`, optionally verified by SHA-256, and then renamed. Existing partials are resumed only after comparing their prefix with source. This does not repair files left with their *final* names by other copy tools.
 
 ## Diagnostic evidence
 
@@ -76,3 +76,12 @@ sector-size probing writes are performed.
 ### v0.3.3-rc1: interface and release packaging
 
 The public GUI has no Music/Audiobooks copy wizard. The optional library helper is retained only for test/backwards compatibility; direct filesystem operations are performed by external user file managers. Normal unmount still calls `imdisk -d -m LETTER:`. On a refused removal, GUI checks the original ImDisk unit identity, logs `UNMOUNT_BUSY`, preserves server/raw handles, and offers a user-controlled retry after closing Explorer/Commander windows. It does not call ImDisk `-D`/`-R` or kill processes. Windows EXE packaging uses the workflow `windows-exe.yml` and requires ImDisk to be installed on the target machine. The physical proxy data path was not modified.
+
+
+### v0.3.3-rc2 — read-only inspection and dependency setup
+
+The iPod inspector (flashbridge_inspector.py) is isolated from the mounted proxy. It opens each selected PhysicalDrive in read-only mode and produces small-sample SHA-256 fingerprints plus disk size, reported sector geometry, parsed MBR entries and bounded FAT32 candidates. The three-leg workflow is card A snapshot → card B snapshot → live assembled-iPod snapshot and comparison. It tests both **linear** card orders; a candidate result never grants write access or establishes adapter identity, bootability, or full integrity. Non-linear mappings remain unsupported.
+
+The opt-in ImDisk setup module (flashbridge_imdisk_setup.py) downloads only from the official LTR Data HTTPS host to an empty temporary directory, requires a valid Windows Authenticode signature with expected publisher text and launches the installer only on explicit user action. No kernel driver is embedded in the PyInstaller EXE.
+
+For user-facing procedures and exact GUI control labels see [English guide](USER_GUIDE.md) and [český návod](USER_GUIDE.cs.md).

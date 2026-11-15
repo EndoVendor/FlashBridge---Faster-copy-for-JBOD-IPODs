@@ -1,6 +1,8 @@
 # FlashBridge v0.3.3-rc2 — Release checklist / Přejímka
 
 ## Completed in source / Hotovo ve zdrojích
+- [x] Final rc2 commit passed 62 synthetic tests on Windows/Linux, Python 3.10 and 3.13
+- [x] Step-by-step user guides EN/CS linked from both READMEs
 - [x] EN/CS help toolbox with first-use guide, safety, unmount troubleshooting and logs
 - [x] Removed optional Music/Audiobooks copy workflow from public GUI
 - [x] Safe normal unmount: no force, user retry, preserve proxy/media if busy
@@ -10,8 +12,9 @@
 - [x] Synthetic tests and compile on Linux
 
 ## Still REQUIRED before shipping an EXE to normal users
-- [ ] GitHub Windows runner has built `FlashBridge.exe` successfully
-- [ ] EXE hash and artifact inspected; launch and UAC confirmed on Windows 10/11
+- [x] GitHub Windows runner built `FlashBridge.exe` successfully on the final rc2 commit (run #43717489315)
+- [x] EXE PE signature (file format, not Authenticode) and ZIP/SHA-256 inspected on CI and downloaded artifact
+- [ ] First launch and UAC confirmed on a real Windows 10/11 workstation
 - [ ] ImDisk installed separately; no-imdisk error and normal mount behavior tested
 - [ ] RO reading of existing FAT32 with correct card order tested on physical media
 - [ ] Safe unmount tested with all file managers closed

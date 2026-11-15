@@ -11,7 +11,7 @@ Aplikace nesbírá telemetrii ani neotevírá síťový port do internetu. TCP p
 - Odmítne nejednoznačné pořadí médií a zjevně chráněné systémové disky.
 - Před připojením znovu kontroluje velikosti, identifikační otisky a FAT32 geometrii.
 - Nespouští formátování, CHKDSK, automatickou opravu, zrcadlení, testovací zápisy ani násilné odpojení.
-- Zápis potvrdí až po vyžádaném flush a zpětném ověření SHA-256. Po chybě další zápisy blokuje.
+- Oba RW režimy potvrdí zápis až po úspěšném požadavku na flush. **VERIFIED** navíc zpětně čte bloky a porovnává SHA-256; **FAST zpětné čtení nemá**. Po I/O chybě blokují další zápisy. Flush ani readback nejsou zárukou trvalého uložení při výpadku napájení.
 - Neúplné odpojení ImDisku brání běžnému ukončení GUI.
 - Existující cílové soubory nepřepisuje, ale ani automaticky neopravuje jejich případné poškození.
 

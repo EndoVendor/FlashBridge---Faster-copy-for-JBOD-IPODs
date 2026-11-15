@@ -1,5 +1,11 @@
 # FlashBridge — v0.3.3-rc2
 
+> **Start here — v0.3.3-rc2 (partially tested release candidate):** [Step-by-step guide (English)](docs/USER_GUIDE.md) · [Český návod](docs/USER_GUIDE.cs.md) · [Security](SECURITY.md) · [Hardware acceptance checklist](RELEASE_CHECKLIST.md)
+>
+> **Windows EXE:** [Download from the successful Windows build → Artifacts](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/actions/runs/43717489315) (artifact **FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED**). Extract ZIP, run **FlashBridge.exe** as administrator. No Python/CMD needed; **ImDisk is installed separately**, using **Install ImDisk…** if needed. This is **not** a signed stable GitHub Release. GitHub Actions artifacts expire.
+>
+> **What it does:** inspects **card A, card B, assembled iPod** in read-only mode and mounts only an **existing recognized two-card FAT32 concatenation**. It **never formats cards, creates iPod partitions or installs firmware**. Raw RW is experimental; protect irreplaceable data.
+
 **Two-card FAT32 JBOD manager for Windows** · [Česky](README.cs.md) · [Release notes](RELEASE_NOTES.md)
 
 **Release classification: PARTIALLY TESTED RELEASE CANDIDATE.** FlashBridge is not a filesystem repair tool and its experimental raw-write mode has not undergone independent hardware qualification. **Do not use the only copy of important data.** The release candidate includes untested changes to the GUI and the unmount error handling; its physical read/write engine is unchanged from v0.3.2-alpha.
