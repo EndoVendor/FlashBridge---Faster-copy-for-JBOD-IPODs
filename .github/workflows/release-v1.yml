@@ -48,7 +48,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view v1.0.0 --json tagName 2>$null
-          if ($LASTEXITCODE -eq 0) { Write-Host "v1.0.0 already exists; never overwrite public assets."; exit 0 }
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "v1.0.0 already exists: update RELEASE NOTES ONLY; do not change tag or public assets."
+            gh release edit v1.0.0 --notes-file RELEASE_NOTES.md
+            if ($LASTEXITCODE -ne 0) { throw "Existing release notes update failed" }
+            exit 0
+          }
           gh release create v1.0.0 FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip release/FlashBridge.exe release/SHA256.txt --target "$env:GITHUB_SHA" --title "FlashBridge v1.0.0 — FUNCTIONAL PROTOTYPE (AS IS, UNSIGNED)" --notes-file RELEASE_NOTES.md --prerelease
           if ($LASTEXITCODE -ne 0) { throw "Release creation failed" }
       - name: Delete old rc2 branch only when exactly unchanged
