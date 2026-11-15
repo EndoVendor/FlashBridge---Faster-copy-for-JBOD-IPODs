@@ -37,7 +37,7 @@ ImDisk sends `INFO`, `READ`, `WRITE`, and `CLOSE` messages as little-endian 64-b
 
 The daemon binds to **127.0.0.1** on a randomly assigned port for each mount. The protocol has **no built-in authentication**; any sufficiently privileged local process that reaches the port could attempt I/O. Use on a trusted machine only, and do not forward the TCP listener.
 
-`WRITE` requests are received in chunks and mapped to one or both physical media. Physical writes are 4 KiB-aligned; unaligned edges use read-modify-write while holding one internal lock. After the request, the daemon requests `FlushFileBuffers`, reads back and compares SHA-256. Upon a write failure, the proxy replies with an error and blocks further writes without intentionally severing an active ImDisk connection. Read and close requests can still be serviced to assist cleanup.
+`WRITE` requests are received in chunks and mapped to one or both physical media. Physical writes are 4 KiB-aligned; unaligned edges use read-modify-write while holding one internal lock. After the request, the daemon requests `FlushFileBuffers`; in VERIFIED mode it additionally reads back the full request and compares SHA-256. In FAST mode it deliberately skips block readback. Upon a write failure, the proxy replies with an error and blocks further writes without intentionally severing an active ImDisk connection. Read and close requests can still be serviced to assist cleanup.
 
 This mechanism **does not** provide atomicity or journaling across FAT tables, clusters or the two physical cards. A crash or disconnect can leave the filesystem inconsistent.
 
@@ -62,3 +62,6 @@ Each run creates a human-readable log and bounded rotated `.jsonl` event stream 
 ## Test strategy
 
 Unit and synthetic integration tests cover ordering, ambiguity, FAT32 geometry, read-only rejection, cross-media writes, ImDisk TCP message sizes >64 MiB, injected physical failures, resume logic, and localization. Windows CI is a **synthetic software test**, not an end-to-end physical device qualification or a measured speed benchmark.
+
+
+**v0.3.0:** Fast mode skips immediate per-block readback; a successful flush remains mandatory. This increases speed but does not repair FAT32 deletion/zero-byte problems or guarantee power-loss durability. Logs sample successful writes but record all errors.

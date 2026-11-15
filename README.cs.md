@@ -3,7 +3,7 @@
 **Automatická identifikace dvoukartového FAT32 JBOD, připojování a monitoring ve Windows.**  
 [English — hlavní dokumentace](README.md) | **Čeština**
 
-> **Stav: PARTIALLY TESTED (ČÁSTEČNĚ TESTOVÁNO) · v0.2.1-alpha · experimentální zdrojová verze.** Detekce pouze pro čtení byla v původním vývojovém scénáři použita se skutečnými kartami. Tato veřejná verze prošla simulovanými testy, **nikoliv nezávislou certifikací kombinace Windows/ImDisk/USB**. Přímý fyzický zápis může poškodit souborový systém. Kontrola boot sektoru není zárukou integrity souborů.
+> **Stav: PARTIALLY TESTED (ČÁSTEČNĚ TESTOVÁNO) · v0.3.0-alpha · experimentální zdrojová verze.** Detekce pouze pro čtení byla v původním vývojovém scénáři použita se skutečnými kartami. Tato veřejná verze prošla simulovanými testy, **nikoliv nezávislou certifikací kombinace Windows/ImDisk/USB**. Přímý fyzický zápis může poškodit souborový systém. Kontrola boot sektoru není zárukou integrity souborů.
 
 FlashBridge je desktopová aplikace s GUI Tkinter. Z dvojice flash médií skládá **sekvenční (konkatenovaný)** virtuální disk bez vytváření jeho obrazu. Pořadí určuje podle obsahu médií, nikoliv značky, kapacity nebo čísla `PhysicalDrive`. Existující FAT32 pak připojuje přes externí [ovladač ImDisk](https://www.ltr-data.se/opencode.html/#ImDisk) a lokální TCP proxy.
 
@@ -35,14 +35,37 @@ kontrolu FAT. **Nepoužívej RW na jedinou kopii důležitých dat a nespoléhej
 správné uvolnění místa mazáním.** Při výskytu ukonči zápisy a bezpečně odpoj
 svazek; opravy bez diagnózy nespouštěj.
 
-## Optimalizace výkonu v0.2.1
+## Zrychlení zápisu v0.3.0-alpha: FAST a VERIFIED
 
-Každý úspěšný zápis je pořád synchronizován a úplně zpětně přečten s porovnáním
-SHA-256. Předčítají se nově jen dva krajní neúplné 4KiB bloky, nikoliv celý přibližně 1MiB zápis při 2KiB posunu FAT32. Nově se synchronizuje **jen dotčená fyzická karta**, obě pouze při
-překročení jejich hranice. V JSONL logu jsou časy `receive_ms`,
-`physical_write_ms`, `flush_ms`, `readback_ms` a `flushed_media`.
-Sekvenční JBOD nezapisuje běžně na obě karty současně. Zvýšení rychlosti zatím
-není změřeno na skutečném Windows hardwaru.
+**Před připojením RW** vyber způsob zápisu; za provozu přepnutí není možné.
+
+| Režim | Fyzický zápis | FlushFileBuffers | Readback + SHA-256 po bloku |
+|---|---|---|---|
+| **FAST (výchozí)** | Ano | Po každém požadavku, jen dotčené karty | **Ne** |
+| VERIFIED | Ano | Po každém požadavku, jen dotčené karty | Ano, celý požadavek |
+
+**FAST nekontroluje obsah zapsaných bloků.** Windows dostane potvrzení až
+po dokončení zápisu a návratu `FlushFileBuffers`, ale ani úspěšný flush
+není absolutní zárukou zachování dat při výpadku USB nebo napájení.
+FAT32 nemá žurnál a přerušený zápis metadat může svazek poškodit v obou režimech.
+
+Na vývojovém hardwaru bylo naměřeno zhruba **35–36 ms/MiB na zápis** a
+**28 ms/MiB na readback**. Vypuštění readbacku dává teoretický strop
+**27–29 MiB/s při aktivních zápisech**, nikoli garantovanou rychlost
+kopírování. Prvních 200 MB/s v Exploreru mohlo být zásadně ovlivněno cache.
+Sekvenční JBOD nezapisuje automaticky paralelně na dvě karty.
+
+Zůstává optimalizace původního 2KiB posunu: předčítají se jen krajní neúplné
+4KiB bloky, nikoli celý 1MiB blok. Synchronizuje se jen dotčená karta,
+obě pouze při přechodu přes jejich hranici.
+
+FAST omezuje objem běžných logů, ale chyby fyzického zápisu a flush eviduje
+podrobně. Každých 64 požadavků zapisuje `IO_STATS` se souhrnnými hodnotami.
+GUI ukazuje průběžnou rychlost za posledních **10 sekund**, nikoli rychlost
+jediného zápisového bloku. Plná diagnostika požadavků zůstává v režimu VERIFIED.
+
+**Nevyřešené mazání:** `Shift+Delete` může zanechávat položky nebo nulové
+soubory; běžný `Delete` může pouze přesouvat do Koše. Režim FAST toto neopravuje.
 
 ## Instalace a použití
 
@@ -51,7 +74,7 @@ není změřeno na skutečném Windows hardwaru.
 3. Spusť `START_FlashBridge.cmd` (vyžádá práva správce). Alternativně spusť jako správce `python flashbridge_gui.pyw`.
 4. Vpravo nahoře přepni **Čeština** nebo **English** (výchozí).
 5. Nech automaticky rozpoznat **jedinou jednoznačnou dvojici**. Zkontroluj doložené pořadí. Pokud automatika dvojici nedokáže prokázat, vyber dvě média a nech je explicitně ověřit.
-6. Vyber volné písmeno. Režim **Připojit RO** neumožňuje zápis; **Připojit RW (experimentální)** vyžaduje výslovné potvrzení fyzických zápisů na obě karty.
+6. Vyber volné písmeno. Před RW zvol **FAST** (výchozí, bez readbacku) nebo **VERIFIED** (se zpětným ověřováním). **Připojit RW (experimentální)** vyžaduje výslovné potvrzení zápisu na obě karty; **Připojit RO** nezapisuje.
 7. Chceš-li doplnit hudbu, vyber zdroj obsahující `Music` a `Audiobooks`, použij **Zjistit chybějící** a zkontroluj volné místo. Potom **Kopírovat jen chybějící**. Existující cesty se nepřepisují.
 8. Zavři otevřené soubory a zvol **Bezpečně odpojit**. Počkej, až zařízení zmizí z ImDisku. Fyzické čtečky odeber bezpečně přes Windows.
 
@@ -61,7 +84,7 @@ není změřeno na skutečném Windows hardwaru.
 - Před připojením opět ověřuje identitu, kapacitu a geometrii; systémové/bootovací disky vylučuje.
 - Nejednoznačné pořadí a neshoda základních FAT hlaviček RW blokují. Nejde ale o kompletní kontrolu konzistence FAT32.
 - Pro fyzické zápisy používá 4KiB zarovnání s read-modify-write a velké požadavky zpracovává po částech. Po chybě zablokuje další zápisy a předá chybu ImDisku.
-- Požaduje `FlushFileBuffers` a zpětné čtení, ale firmware čtečky či flash může mít vlastní cache; **nejde o záruku trvalého uložení po náhlém výpadku**.
+- V obou RW režimech požaduje `FlushFileBuffers`; **pouze VERIFIED** provádí plný SHA-256 readback. Firmware čtečky či flash může mít vlastní cache; **nejde o záruku trvalého uložení po náhlém výpadku**.
 - Existující soubory se přeskakují **podle cesty** — již existující, ale poškozený či nedokončený soubor se automaticky neopraví. Soubory nad 4 GiB nelze uložit na FAT32.
 
 ### Logování a soukromí
@@ -80,7 +103,7 @@ CI testuje syntetická média na Windows a Linuxu. Neověřuje reálné přenoso
 **Licence:** [MIT](LICENSE) pro zdrojový kód FlashBridge. Windows a ImDisk jsou samostatné produkty s vlastními licencemi. Balíček neobsahuje podepsaný `.exe` a zatím nejde o produkčně certifikovanou aplikaci.
 
 
-**Klasifikace vydání: Partially tested.** V lokálním prostředí prošlo 21 syntetických testů. Automatická detekce dvojice reálných karet byla ověřena ve vývojovém scénáři. Publikovaná alfa verze nemá nezávislé ověření kombinace Windows/ImDisk/USB a fyzické RW zůstává experimentální. Bez záruky zvýšení výkonu nebo bezpečnosti dat.
+**Klasifikace vydání: Partially tested.** V lokálním prostředí prošlo 33 syntetických testů. Automatická detekce dvojice reálných karet byla ověřena ve vývojovém scénáři. Publikovaná alfa verze nemá nezávislé ověření kombinace Windows/ImDisk/USB a fyzické RW zůstává experimentální. Bez záruky zvýšení výkonu nebo bezpečnosti dat.
 
 ### Analýza rychlosti (pouze čtení logu)
 
@@ -90,8 +113,7 @@ Po skončení relace spusť:
 python tools/profile_report.py "$env:LOCALAPPDATA\FlashBridge\logs\TVUJ_SOUBOR.jsonl"
 ```
 
-Výpis rozdělí čas mezi `physical_write_ms`, `flush_ms`, `readback_ms` a příjem
-TCP dat. Při vysokém `flush_ms` omezuje rychlost zejména flush řadiče nebo
-karty; při vysokém `readback_ms` je významná režie úplné zpětné kontroly.
-JBOD je konkatenovaný svazek, tedy nezapisuje automaticky paralelně na obě
-karty. Optimalizace pouze odstraňuje nadbytečný flush druhé karty.
+Režim FAST vzorkuje běžné `IO_END`; celkový počet bajtů a fáze obsahuje
+`IO_STATS`. Počet vzorkovaných zápisů není celkový počet zápisů. Ve FAST
+je `readback_ms` nulový; VERIFIED měří plné zpětné čtení. Ani jeden režim
+nepotvrzuje zápisy před dokončením požadovaného flush.

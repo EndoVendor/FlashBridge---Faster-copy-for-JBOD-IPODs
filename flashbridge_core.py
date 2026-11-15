@@ -9,6 +9,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Callable, BinaryIO
 import ctypes
+from collections import deque
 import hashlib
 import json
 import logging
@@ -24,6 +25,13 @@ import sys
 import threading
 import time
 import uuid
+
+VERSION = '0.3.0-alpha'
+WRITE_MODE_FAST = 'fast'
+WRITE_MODE_VERIFIED = 'verified'
+WRITE_MODES = frozenset((WRITE_MODE_FAST, WRITE_MODE_VERIFIED))
+# In fast mode, completed writes are sampled rather than logging every MiB.
+FAST_SUCCESS_SAMPLE_EVERY = 64
 
 MIB = 1024 ** 2
 GIB = 1024 ** 3
@@ -54,7 +62,7 @@ def make_logger(on_event=None, directory=None):
     fh.setFormatter(fmt)
     logger.addHandler(fh)
     lg = RunLog(logger, events_path, log_path, on_event)
-    lg.info('START', version='0.2.1-alpha', python=sys.version.split()[0], platform=sys.platform)
+    lg.info('START', version=VERSION, python=sys.version.split()[0], platform=sys.platform)
     return lg
 
 
@@ -588,8 +596,13 @@ def recv_exact(sock, length):
 
 
 class ProxyServer(threading.Thread):
-    def __init__(self, plan, writable, logger, port=9011, raw_factory=RawDevice, on_state=None):
+    def __init__(self, plan, writable, logger, port=9011, raw_factory=RawDevice,
+                 on_state=None, write_mode=WRITE_MODE_VERIFIED):
         super().__init__(daemon=True, name='ProxyServer')
+        if write_mode not in WRITE_MODES:
+            raise ValueError('Unsupported write mode; expected fast or verified')
+        # Immutable for the duration of the mount; no mid-session policy switch.
+        self.write_mode = write_mode
         self.plan, self.writable = plan, writable
         self.log, self.port = logger, port
         self.factory = raw_factory
@@ -603,17 +616,39 @@ class ProxyServer(threading.Thread):
         self.dev = None
         self.bytes_written = 0
         self.bytes_read = 0
+        self.verified_bytes = 0
+        self.write_requests = 0
+        self._write_total_seconds = 0.0
+        self._write_physical_seconds = 0.0
+        self._write_flush_seconds = 0.0
+        self._write_readback_seconds = 0.0
         self.last_speed = 0
         self.last_error = None
         self.client_count = 0
         self.req_id = 0
         self._last_rate = time.monotonic()
         self._last_n = 0
+        self._recent_completed = deque(maxlen=4096)
+        self._first_confirmed_ts = None
         self.volume_signature = None
 
     def _state(self, status):
         self.on_state(status)
         self.log.info('SERVER_STATE', status=status)
+
+    def rolling_write_rate(self, window_seconds=10.0):
+        """Confirmed bytes/sec over a sliding time window (not instantaneous block speed)."""
+        now = time.monotonic()
+        cutoff = now - window_seconds
+        while self._recent_completed and self._recent_completed[0][0] < cutoff:
+            self._recent_completed.popleft()
+        if not self._recent_completed:
+            return 0.0
+        # The producing server and consuming GUI are separate threads, but
+        # deque append/popleft are individually atomic under CPython's GIL.
+        first = self._first_confirmed_ts or self._recent_completed[0][0]
+        duration = max(1.0, min(window_seconds, now - first))
+        return sum(n for t, n in tuple(self._recent_completed) if t >= cutoff) / duration
 
     def stop(self):
         self.stopping.set()
@@ -637,6 +672,11 @@ class ProxyServer(threading.Thread):
                 self.plan.volume_bytes, self.plan.fat.sector_size,
                 self.plan.fat.sectors_fat, self.plan.fat.sectors_reserved):
                 raise RuntimeError('FAT32 boot parameters changed before mounting.')
+            self.log.info('WRITE_POLICY', mode=self.write_mode if self.writable else 'readonly',
+                          flush_each_request=self.writable,
+                          readback_each_request=self.writable and self.write_mode == WRITE_MODE_VERIFIED,
+                          fast_success_log_sample=FAST_SUCCESS_SAMPLE_EVERY,
+                          block_readback_is_not_durability_proof=True)
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 self.server = sock
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -727,12 +767,17 @@ class ProxyServer(threading.Thread):
                     raise PermissionError('WRITE request on read-only volume')
                 if offset % 512 or nbytes % 512:
                     raise ValueError('ImDisk requested unaligned write')
-                self.log.info('IO_BEGIN', req_id=ident, operation='WRITE', logical_offset=offset,
-                              raw_offset=offset+self.plan.fat.offset, bytes=nbytes,
-                              physical_first=self.plan.first.number,
-                              physical_second=self.plan.second.number)
+                # Always log beginnings in verified mode. Fast mode samples normal
+                # successes; any failure below is logged fully with its offset.
+                if self.write_mode == WRITE_MODE_VERIFIED or ident % FAST_SUCCESS_SAMPLE_EVERY == 0:
+                    self.log.info('IO_BEGIN', req_id=ident, operation='WRITE', logical_offset=offset,
+                                  raw_offset=offset+self.plan.fat.offset, bytes=nbytes,
+                                  physical_first=self.plan.first.number,
+                                  physical_second=self.plan.second.number,
+                                  write_mode=self.write_mode)
                 t0 = time.monotonic()
-                expected_hash = hashlib.sha256()
+                need_readback = self.write_mode == WRITE_MODE_VERIFIED
+                expected_hash = hashlib.sha256() if need_readback else None
                 remaining = nbytes
                 pos = offset
                 fault = None
@@ -748,7 +793,8 @@ class ProxyServer(threading.Thread):
                     receive_seconds += time.monotonic() - phase_start
                     if chunk is None: raise ConnectionError('WRITE body truncated')
                     if fault is None and not self.failed:
-                        expected_hash.update(chunk)
+                        if need_readback:
+                            expected_hash.update(chunk)
                         try:
                             phase_start = time.monotonic()
                             try:
@@ -781,23 +827,26 @@ class ProxyServer(threading.Thread):
                             flushed_media = self.dev.sync_volume_range(offset, nbytes)
                         finally:
                             flush_seconds += time.monotonic() - phase_start
-                        # Check full request after flush, without buffering it all.
-                        stage = 'READBACK'
-                        actual_hash = hashlib.sha256()
-                        remaining = nbytes
-                        pos = offset
-                        phase_start = time.monotonic()
-                        try:
-                            while remaining:
-                                take = min(remaining, IO_CHUNK)
-                                actual_hash.update(self.dev.read_volume(pos, take, phase='READBACK'))
-                                pos += take
-                                remaining -= take
-                        finally:
-                            readback_seconds += time.monotonic() - phase_start
-                        stage = 'VERIFY'
-                        if actual_hash.digest() != expected_hash.digest():
-                            raise OSError('FATAL: post-flush hash mismatch')
+                        # FAST: flush then acknowledge, no post-write readback or
+                        # SHA. VERIFIED: flush then full readback and SHA comparison.
+                        actual_hash = None
+                        if need_readback:
+                            stage = 'READBACK'
+                            actual_hash = hashlib.sha256()
+                            remaining = nbytes
+                            pos = offset
+                            phase_start = time.monotonic()
+                            try:
+                                while remaining:
+                                    take = min(remaining, IO_CHUNK)
+                                    actual_hash.update(self.dev.read_volume(pos, take, phase='READBACK'))
+                                    pos += take
+                                    remaining -= take
+                            finally:
+                                readback_seconds += time.monotonic() - phase_start
+                            stage = 'VERIFY'
+                            if actual_hash.digest() != expected_hash.digest():
+                                raise OSError('FATAL: post-flush hash mismatch')
                     except Exception as exc:
                         fault = exc
                         event = ('PHYSICAL_FLUSH_FAIL' if stage == 'FLUSH' else
@@ -830,18 +879,47 @@ class ProxyServer(threading.Thread):
                     continue  # Read requests and ImDisk orderly CLOSE remain serviceable
                 client.sendall(struct.pack('<QQ', 0, nbytes))
                 self.bytes_written += nbytes
+                confirmed_ts = time.monotonic()
+                if self._first_confirmed_ts is None:
+                    self._first_confirmed_ts = confirmed_ts
+                self._recent_completed.append((confirmed_ts, nbytes))
+                if need_readback:
+                    self.verified_bytes += nbytes
+                self.write_requests += 1
                 elapsed = time.monotonic()-t0
+                self._write_total_seconds += elapsed
+                self._write_physical_seconds += physical_write_seconds
+                self._write_flush_seconds += flush_seconds
+                self._write_readback_seconds += readback_seconds
                 if elapsed > 0:
                     self.last_speed = nbytes/elapsed
-                self.log.info('IO_END', req_id=ident, operation='WRITE', logical_offset=offset,
-                              bytes=nbytes, hash_sha256=actual_hash.hexdigest(),
-                              flush_completed=True, elapsed_ms=round(elapsed*1000,1),
-                              receive_ms=round(receive_seconds*1000,1),
-                              physical_write_ms=round(physical_write_seconds*1000,1),
-                              flush_ms=round(flush_seconds*1000,1),
-                              readback_ms=round(readback_seconds*1000,1),
-                              flushed_media=flushed_media,
-                              total_bytes_written=self.bytes_written)
+                # Keep full error diagnostics but avoid ~1M JSONL lines for
+                # a 500-GiB copy. Verified mode retains per-request records.
+                if (need_readback or self.write_requests <= 4 or
+                        self.write_requests % FAST_SUCCESS_SAMPLE_EVERY == 0 or nbytes < 65536):
+                    self.log.info('IO_END', req_id=ident, operation='WRITE', logical_offset=offset,
+                                  bytes=nbytes, hash_sha256=actual_hash.hexdigest() if need_readback else None,
+                                  readback_performed=need_readback, write_mode=self.write_mode,
+                                  flush_completed=True, elapsed_ms=round(elapsed*1000,1),
+                                  receive_ms=round(receive_seconds*1000,1),
+                                  physical_write_ms=round(physical_write_seconds*1000,1),
+                                  flush_ms=round(flush_seconds*1000,1),
+                                  readback_ms=round(readback_seconds*1000,1),
+                                  flushed_media=flushed_media,
+                                  total_bytes_written=self.bytes_written,
+                                  total_verified_bytes=self.verified_bytes,
+                                  total_write_requests=self.write_requests,
+                                  sample_every=1 if need_readback else FAST_SUCCESS_SAMPLE_EVERY)
+                if self.write_requests % FAST_SUCCESS_SAMPLE_EVERY == 0:
+                    self.log.info('IO_STATS', mode=self.write_mode,
+                                  total_bytes_written=self.bytes_written,
+                                  total_verified_bytes=self.verified_bytes,
+                                  write_requests=self.write_requests,
+                                  average_active_mib_s=round((self.bytes_written / MIB) /
+                                                               max(self._write_total_seconds, 1e-9),2),
+                                  physical_write_seconds=round(self._write_physical_seconds,3),
+                                  flush_seconds=round(self._write_flush_seconds,3),
+                                  readback_seconds=round(self._write_readback_seconds,3))
             elif code == 5: # CLOSE
                 self.log.info('PROXY_CLOSE', req_id=ident)
                 return

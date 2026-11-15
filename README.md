@@ -3,7 +3,7 @@
 **Evidence-based two-media FAT32 JBOD detection, mounting and copy monitoring for Windows.**  
 **English (primary)** | [Čeština](README.cs.md)
 
-> **Status: PARTIALLY TESTED · v0.2.1-alpha · experimental source preview.** Read-only discovery has been tested on real two-card media in the development scenario; the new public release is tested on synthetic media and has **not** undergone an independent Windows/ImDisk/USB hardware qualification. Raw write access can corrupt a filesystem. Do not treat a successful boot-sector check as a health certification.
+> **Status: PARTIALLY TESTED · v0.3.0-alpha · experimental source preview.** Read-only discovery has been tested on real two-card media in the development scenario; the new public release is tested on synthetic media and has **not** undergone an independent Windows/ImDisk/USB hardware qualification. Raw write access can corrupt a filesystem. Do not treat a successful boot-sector check as a health certification.
 
 FlashBridge provides a Tk desktop GUI for joining two physical flash media into a **concatenated** virtual disk without writing an image file. It detects media order from on-media evidence rather than card brand, capacity or Windows disk number. It then exposes the existing FAT32 filesystem through the separate [ImDisk Virtual Disk Driver](https://www.ltr-data.se/opencode.html/#ImDisk) using a localhost TCP proxy.
 
@@ -18,7 +18,7 @@ The project was developed to address very slow transfers through an iPod's USB i
 | Sequential/concatenated FAT32 spanning the two media | Supported design |
 | Automatic ordering based on MBR, FAT32 BPB, backup and FSInfo | Implemented; fails closed if ambiguous |
 | Read-only mounting via ImDisk | Implemented |
-| Read-write mounting, flushed readback, structured fault logs | **Experimental** |
+| Read-write mounting (Fast or Verified), physical flush and fault logs | **Experimental** |
 | Copy *missing* Music/Audiobooks files with optional SHA-256 checks | Implemented; does not replace existing files |
 | Arbitrary JBOD / RAID 0 striping / 3+ cards / exFAT / NAS | **Not supported** |
 | Flash health/bit-error certification or automatic FAT repair | **Not supported** |
@@ -36,16 +36,43 @@ mode for irreplaceable data or depend on deletion/space reclamation.** If this
 symptom occurs, stop writes, unmount normally, save diagnostic logs and inspect
 filesystem consistency with suitable read-only tooling before any repair.
 
-## Performance / v0.2.1 profile
+## Throughput: FAST versus VERIFIED (v0.3.0-alpha)
 
-Every accepted write still receives a physical flush and full post-flush
-SHA-256 readback before successful acknowledgement. To avoid an unnecessary
-flush, this version preserves only the two misaligned 4KiB edge sectors instead of pre-reading an entire megabyte when the FAT32 volume is shifted by 2KiB. It also syncs **only the physical card touched** by a write, or
-both when the request crosses the card boundary. `IO_END` JSONL records now
-include `receive_ms`, `physical_write_ms`, `flush_ms`, `readback_ms` and
-`flushed_media` so bottlenecks can be quantified. This does not make the two
-SD cards parallel: concatenated JBOD normally writes to one card at a time.
-No throughput improvement is claimed until Windows hardware benchmarks exist.
+Choose the policy **before** mounting RW; it cannot change while mounted.
+
+| Mode | Physical writes | FlushFileBuffers | SHA-256 post-write block readback | Default in GUI |
+|---|---|---|---|---|
+| **FAST** | Yes | After every accepted write request, touched media only | **No** | **Yes** |
+| VERIFIED | Yes | After every accepted write request, touched media only | Yes, entire request | No |
+
+**FAST does not verify written block contents.** It acknowledges to ImDisk only after
+all request data has been accepted by the underlying Windows write calls and
+`FlushFileBuffers` has returned successfully. A successful flush is not a guarantee
+of power-loss durability on all flash devices or USB bridges. FAT32 has no journal,
+so interrupting updates can leave inconsistent metadata in *either* mode.
+
+FAST avoids the redundant ~28 ms/MiB readback observed on the development
+reader; the measured physical-write phase was ~35–36 ms/MiB. This suggests a
+**theoretical active-I/O ceiling around 27–29 MiB/s** for that reader,
+not a guaranteed file-copy speed; 200 MB/s initially shown by Explorer was
+likely affected by Windows caching. Speeds vary with card, reader, FAT32
+metadata access and workload. Two independent readers **do not** make a
+sequential JBOD into parallel striped storage.
+
+Previous v0.2.1 improvements remain: only misaligned 4KiB edge blocks are
+pre-read; the aligned interior is written directly. Flushes touch only media
+covered by each request, or both when crossing the physical-media boundary.
+
+FAST reduces normal per-request JSONL logging (first few writes, small metadata
+writes, then samples), with periodic `IO_STATS` containing **all confirmed byte
+counts** and phase totals. Every physical WRITE/FLUSH fault is logged in full,
+including the medium and original error. The GUI shows **confirmed throughput
+averaged over a rolling 10-second window**, not an instantaneous single-block
+speed. VERIFIED retains full write and readback records.
+
+**Known critical issue:** `Shift+Delete` / permanent deletes were reported to
+leave files or zero-byte entries; normal `Delete` may simply move to Recycle Bin.
+Neither write policy fixes this. See [issue #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1).
 
 ## Install and launch
 
@@ -54,7 +81,7 @@ No throughput improvement is claimed until Windows hardware benchmarks exist.
 3. Double-click `START_FlashBridge.cmd` to request UAC elevation. Alternatively open an elevated PowerShell and run `python flashbridge_gui.pyw`.
 4. Select **English** (default) or **Čeština** at the top right.
 5. Let the app scan and identify one *unique* pair. Verify its evidence and order. If automatic detection is ambiguous, select exactly two devices and verify them explicitly.
-6. Choose an unused drive letter. Start with **Mount RO** when you do not need to write. **Mount RW (experimental)** requires a confirmation phrase and explicit permission to write to *both* physical media.
+6. Choose an unused drive letter. For RW, choose **FAST** (default; flush, no per-block verification) or **VERIFIED** (flush + full SHA-256 block readback) **before Mount RW**. RW always requires explicit confirmation for both physical media. Start with **Mount RO** if you do not need to write.
 7. Optionally select a source folder containing `Music` and `Audiobooks`, click **Find missing files**, review free space and the summary, then click **Copy missing only**. Already-existing file paths are never replaced.
 8. Close all file handles and choose **Safe unmount**. Wait until the device is removed from ImDisk. Eject the USB readers in Windows before disconnecting.
 
@@ -64,7 +91,7 @@ No throughput improvement is claimed until Windows hardware benchmarks exist.
 - Disk identity, sizes and FAT32 geometry are rechecked immediately before mount; protected boot/system disks are excluded.
 - RW is refused if identification is ambiguous or basic FAT headers disagree. This is **not** a full FAT32 consistency audit.
 - Physical writes use 4 KiB-aligned read-modify-write on partial boundaries and handle large proxy requests incrementally. On a write fault, subsequent writes are blocked and an error response is returned to ImDisk.
-- `FlushFileBuffers` and post-flush readback are requested, but USB/flash firmware may still cache data. A successful write acknowledgement does **not** guarantee that all data will survive unexpected power loss.
+- `FlushFileBuffers` is requested in both RW modes; **only VERIFIED** additionally performs per-write post-flush SHA-256 readback. USB/flash firmware may cache data. A successful write acknowledgement does **not** guarantee that all data survive unexpected power loss.
 - Copying to a partially corrupted filesystem cannot be made fully safe by application-level checks. Consider the state of your files before enabling RW.
 - Existing files are skipped **by path**; a truncated or corrupted file that already exists will not be repaired. Files larger than the FAT32 4 GiB limit are skipped.
 
@@ -83,7 +110,7 @@ CI runs these tests on Windows and Linux using synthetic sparse-file media. It d
 
 ## Release and licensing
 
-**Release classification: Partially tested.** 21 synthetic unit tests passed locally; read-only two-card discovery was exercised in a development scenario. The public codebase has not passed independent Windows/ImDisk/USB integration testing, and physical RW operation remains experimental. No general performance or data-safety guarantees are made.
+**Release classification: Partially tested.** 33 synthetic tests passed locally; read-only two-card discovery was exercised in a development scenario. The public codebase has not passed independent Windows/ImDisk/USB integration testing, and physical RW operation remains experimental. No general performance or data-safety guarantees are made.
 
 
 Source code is available under the [MIT License](LICENSE). ImDisk and Windows are external prerequisites with their own terms. This release is a **GitHub-ready source tree**, not a signed `.exe` or hardware-certified production release. Feedback and test reports are welcome; do not benchmark against real data without understanding the raw-write risk.
@@ -97,9 +124,7 @@ any SD card:
 python tools/profile_report.py "$env:LOCALAPPDATA\FlashBridge\logs\YOUR_SESSION.jsonl"
 ```
 
-A request's total time includes write, flush, readback, and TCP overhead.
-A high `flush_ms` ratio suggests controller/firmware flush latency; a high
-`readback_ms` ratio highlights the extra verification pass. Both cards can be
-attached by separate USB readers, but the **concatenated filesystem does not
-normally write to both in parallel**. The new optimization avoids only an
-unnecessary flush; no unsafe background acknowledgements are introduced.
+FAST reports sampled `IO_END` records and aggregate `IO_STATS`; never treat
+FAST's sampled IO_END count as the whole session's written bytes. In FAST,
+`readback_ms` is zero by design. VERIFIED includes per-write readback timing.
+Neither mode acknowledges writes before its required flush.

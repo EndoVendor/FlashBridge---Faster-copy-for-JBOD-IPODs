@@ -28,3 +28,6 @@ Chybu lze nahlásit v GitHub Issues spolu s **anonymizovanými logy**, verzemi O
 ## Známý nevyřešený problém mazání
 
 Na vývojovém JBOD některé smazané soubory po přerušených zápisových relacích zůstávaly v adresáři nebo měly nulovou délku. **Příčina není prokázaná ani opravená.** Nepoužívej experimentální RW pro jedinečná důležitá data.
+
+
+**v0.3.0:** Režim FAST vypouští readback bloků, nikoli flush. Neopravuje problém trvalého mazání FAT32 a negarantuje integritu po výpadku. Úspěšné zápisy jsou v logu vzorkované, chyby úplné.

@@ -29,4 +29,25 @@ class ProfileReportTests(unittest.TestCase):
             self.assertAlmostEqual(stats['measured_mb_s'],5.)
             self.assertAlmostEqual(stats['phase_seconds']['flush_ms'],0.2)
 
+    def test_fast_samples_not_mistaken_for_session_totals(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'fast.jsonl'
+            events = [
+                {'event':'WRITE_POLICY','mode':'fast'},
+                {'event':'IO_END','operation':'WRITE','bytes':1048576,
+                 'elapsed_ms':37,'physical_write_ms':34,'flush_ms':0.1,
+                 'readback_ms':0,'readback_performed':False,'write_mode':'fast'},
+                {'event':'IO_STATS','mode':'fast','total_bytes_written':67108864,
+                 'write_requests':64,'average_active_mib_s':28.1,
+                 'physical_write_seconds':2.2,'flush_seconds':0.02,'readback_seconds':0},
+            ]
+            path.write_text('\n'.join(map(json.dumps,events))+'\n')
+            result=analyze(path)
+            self.assertTrue(result['sampled_successes'])
+            self.assertEqual(result['write_requests'],1)
+            self.assertEqual(result['aggregate_confirmed_bytes'],67108864)
+            self.assertEqual(result['aggregate_confirmed_requests'],64)
+            self.assertEqual(result['aggregate_active_mib_s'],28.1)
+            self.assertIn('samples ONLY',result['sample_warning'])
+
 if __name__=='__main__':unittest.main()

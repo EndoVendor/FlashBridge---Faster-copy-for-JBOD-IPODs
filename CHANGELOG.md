@@ -1,10 +1,12 @@
 # Changelog
 
-## Diagnostic update — experimental (2026-11-15)
-- Log exact physical media and original Windows error separately for WRITE, FLUSH, read-modify-write edge READ and post-flush READBACK failures.
-- Add DEVICE_IO_UNAVAILABLE event for WinError 55/1167; this does not assert media removal.
-- Retain fail-closed behavior after physical I/O faults. Injected faults tested only on disposable synthetic media; no real-device qualification.
-- Known unresolved issues: deletion/zero-byte entries (#1) and WinError 55 device I/O failure (#2).
+## v0.3.0-alpha — Fast write policy, partially tested
+- Added selectable Fast (write+flush) / Verified (write+flush+SHA256 readback) policy, fixed per mount.
+- Removed redundant SHA calculation and synchronous readback in Fast.
+- Retained per-request physical flush, fault latch, device checks and edge-preserving writes.
+- Sampled normal Fast logs and added cumulative IO_STATS; monitor uses rolling 10s confirmed write throughput.
+- Explicit EN/CS warnings about unresolved permanent-deletion behavior; synchronized GUI/core version.
+- 33 synthetic tests including Fast physical fault injection. Windows CI required.
 
 
 ## v0.2.1-alpha — partially tested

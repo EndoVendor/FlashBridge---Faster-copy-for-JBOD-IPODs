@@ -18,10 +18,8 @@ from flashbridge_core import (
     ProxyServer, discover_pair, discover_all_pairs, eligible, format_bytes,
     imdisk_list, imdisk_mount, imdisk_unmount, is_elevated, load_optional_manifests,
     make_logger, path_letter_free, powershell_disks, plan_missing_files,
-    copy_only_missing, GIB,
+    copy_only_missing, GIB, VERSION,
 )
-
-VERSION = '0.2.0-alpha'
 
 
 def imdisk_units(output):
@@ -62,6 +60,7 @@ class BridgeApp:
         self.source_root = tk.StringVar(value='')
         self.manifests_folder = tk.StringVar(value='')
         self.verify_copy = tk.BooleanVar(value=True)
+        self.write_mode = tk.StringVar(value='fast')  # Default RW policy: fast+flush
         self.status = tk.StringVar(value=self.t('ready'))
         self.progress = tk.StringVar(value='0 B')
         self.copy_info = tk.StringVar(value=self.t('copy_unanalyzed'))
@@ -165,7 +164,20 @@ class BridgeApp:
         self.unmount_button.pack(side='left', padx=4)
         self.inspect_button = self._widget(ttk.Button, r, 'inspect_imdisk', command=self._inspect_imdisk)
         self.inspect_button.pack(side='left', padx=4)
-        self._widget(ttk.Label, mnt, 'mount_help', wraplength=1000).pack(anchor='w', padx=8, pady=(0, 7))
+        modes = ttk.Frame(mnt)
+        modes.pack(fill='x', padx=8, pady=(0, 4))
+        self._widget(ttk.Label, modes, 'io_mode_label').pack(side='left')
+        self.fast_radio = self._widget(ttk.Radiobutton, modes, 'io_fast',
+                                       variable=self.write_mode, value='fast')
+        self.fast_radio.pack(side='left', padx=(12, 8))
+        self.verified_radio = self._widget(ttk.Radiobutton, modes, 'io_verified',
+                                           variable=self.write_mode, value='verified')
+        self.verified_radio.pack(side='left', padx=(12, 8))
+        self._widget(ttk.Label, mnt, 'mount_help', wraplength=1000).pack(anchor='w', padx=8, pady=(0, 5))
+        self._widget(ttk.Label, mnt, 'fast_warning', wraplength=1000,
+                     foreground='#9C5023').pack(anchor='w', padx=8, pady=(0, 7))
+        self._widget(ttk.Label, mnt, 'delete_warning', wraplength=1000,
+                     foreground='#9C5023').pack(anchor='w', padx=8, pady=(0, 7))
 
         copy = self._widget(ttk.LabelFrame, outer, 'copy_header')
         copy.pack(fill='x', pady=4)
@@ -290,10 +302,13 @@ class BridgeApp:
         if not path_letter_free(letter):
             messagebox.showerror(self.t('letter_taken_title'), self.t('letter_taken', letter=letter))
             return
+        selected_mode = self.write_mode.get()
         if writable:
             confirm = simpledialog.askstring(self.t('rw_confirm_title'), self.t('rw_confirm',
                 first=self.plan.first.number, size1=format_bytes(self.plan.first.size),
-                second=self.plan.second.number, size2=format_bytes(self.plan.second.size)), parent=self.root)
+                second=self.plan.second.number, size2=format_bytes(self.plan.second.size)) +
+                '\n\n' + self.t('rw_policy_confirm', mode=self.t('io_fast' if selected_mode == 'fast' else 'io_verified')),
+                parent=self.root)
             if confirm != self.t('rw_token'):
                 return
         plan = self.plan
@@ -317,7 +332,10 @@ class BridgeApp:
                 raise RuntimeError(self.t('letter_taken_short', letter=letter))
             # Choose a fresh ephemeral localhost port for each mount, not a fixed global port.
             server = ProxyServer(fresh, writable, self.log, port=0,
-                                 on_state=lambda state: self._post('server_state', state))
+                                 on_state=lambda state: self._post('server_state', state),
+                                 write_mode=selected_mode)
+            self.log.info('MOUNT_POLICY_SELECTED', writable=writable,
+                          mode=selected_mode if writable else 'readonly')
             self.server = server
             server.start()
             if not server.started.wait(20) or not server.ready:
@@ -418,6 +436,8 @@ class BridgeApp:
         state(self.autodetect, idle and sum(1 for d in self.disks if eligible(d)) >= 2)
         state(self.ro_button, idle and self.plan is not None)
         state(self.rw_button, idle and self.plan is not None and self.plan.read_write_safe)
+        state(self.fast_radio, idle)
+        state(self.verified_radio, idle)
         state(self.unmount_button, not busy and self.mounted)
         state(self.inspect_button, not busy)
         state(self.plan_copy_button, not busy and self.mounted and self.mode == 'RW' and not self._fault())
@@ -454,7 +474,7 @@ class BridgeApp:
                 connection=self.t('connected' if self.server.active else 'waiting'),
                 read=format_bytes(self.server.bytes_read),
                 written=format_bytes(self.server.bytes_written),
-                speed=format_bytes(self.server.last_speed)))
+                speed=format_bytes(self.server.rolling_write_rate())))
         self._buttons()
         self.root.after(200, self._tick)
 

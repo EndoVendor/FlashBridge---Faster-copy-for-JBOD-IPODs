@@ -4,10 +4,12 @@ from pathlib import Path
 import socket
 import struct
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from flashbridge_core import RawDevice, ProxyServer, make_logger, recv_exact, MIB
+from flashbridge_core import (RawDevice, ProxyServer, JoinedDisk, make_logger,
+                              recv_exact, MIB, PhysicalOperationFailure)
 from test_flashbridge import Fixture, D1, D2, PART
 
 
@@ -62,12 +64,15 @@ class FailDiagnosticsTests(unittest.TestCase):
         try:
             with socket.create_connection(('127.0.0.1', srv.port), timeout=5) as conn:
                 conn.settimeout(10)
+                # Both media involved only when testing disk 11; the first media
+                # then succeeds and the second is the actual failing device.
                 border = D1.size - PART
                 start = (border - 4096) if disk == 11 else 3*MIB
                 count = 8192 if disk == 11 else 4096
                 conn.sendall(struct.pack('<QQQ', 3, start, count) + b'Z'*count)
                 self.assertEqual(struct.unpack('<QQ', recv_exact(conn,16)), (5,0))
                 self.assertTrue(srv.failed)
+                # Fault latch allows reads and CLOSE, refuses future writes.
                 conn.sendall(struct.pack('<Q',5))
         finally:
             srv.stop()

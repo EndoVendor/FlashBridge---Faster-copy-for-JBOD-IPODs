@@ -1,12 +1,13 @@
-# FlashBridge v0.2.1-alpha — Partially tested
+# FlashBridge v0.3.0-alpha — Partially tested / experimental
 
-**Experimental source preview, not hardware-qualified.**
+- **FAST (GUI default):** write + flush only, **no immediate SHA-256 readback**.
+- **VERIFIED:** previous write + flush + per-block readback + SHA-256.
+- Policy fixed for entire mount; user explicitly authorizes physical RW.
+- Fault latch retained, including device-specific WRITE/FLUSH/READBACK diagnostics.
+- FAST samples successful I/O records and emits cumulative `IO_STATS`; GUI shows rolling 10s confirmed throughput.
+- Retains 4KiB-edge read/modify/write optimization and touched-media-only flush.
+- **Known unresolved:** permanent Shift+Delete behavior, zero-byte entries, prior WinError 55 device I/O failure.
+- **No physical USB/SD hardware qualification; do not deploy over an active mount.**
+- 33 synthetic unit/integration tests; Windows/Linux CI must pass before release completion.
 
-- Reduced huge read-modify-write overhead for misaligned FAT32 layouts: up to two 4KiB edge pre-reads, direct aligned interior writes.
-- Reduced redundant `FlushFileBuffers`: only media touched by each write are flushed.
-- Full per-write flush plus SHA-256 readback remains enabled.
-- Added phase timing (`receive`, `physical write`, `flush`, `readback`) and touched-media evidence to `IO_END` diagnostic logs.
-- **Open critical issue:** deletions have sometimes left files present or zero-length after prior interrupted writes; the cause has not been proven or fixed. RW is unsuitable for critical or irreplaceable data.
-- No sustained Windows/USB throughput gain has been measured or guaranteed.
-
-Synthetic tests only; never interpret success as certification of physical cards.
+Measured development hardware: ~35–36 ms/MiB physical write and ~28 ms/MiB readback. Removing readback may improve active throughput toward ~27–29 MiB/s on that reader. This is **not a guaranteed measured FAST throughput**.

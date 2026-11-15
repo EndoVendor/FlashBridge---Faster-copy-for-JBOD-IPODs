@@ -11,7 +11,7 @@ The application has no online telemetry, no account access and no remote listene
 - Fail closed when media order is not unique.
 - Exclude detected boot/system/offline disks; recheck disk numbers, size, physical fingerprints and filesystem parameters before RW.
 - No formatting, CHKDSK, mirroring, automatic FAT repair, test writes or forced unmount.
-- Writable proxy acknowledges only after requested flush and SHA-256 readback; a failure blocks additional writes.
+- Both RW policies acknowledge only after a successful flush. VERIFIED also requires complete SHA-256 post-flush readback; FAST skips it. Both latch I/O faults and block subsequent writes.
 - Incomplete ImDisk removal prevents normal GUI exit. Do not kill the server while a mount is present.
 - Existing destination paths are not overwritten. The program does not repair truncated final-name files from other tools.
 
@@ -30,3 +30,6 @@ Open a GitHub issue with OS version, Python version, ImDisk version, card-reader
 ## Known unresolved deletion issue
 
 On a development JBOD, some deleted files reportedly remained or became zero-byte directory entries after previous interrupted write sessions. This behaviour is **not resolved**. Do not use experimental RW mode with irreplaceable data or assume delete/space reclamation is safe.
+
+
+**v0.3.0:** Fast mode skips immediate per-block readback; a successful flush remains mandatory. This increases speed but does not repair FAT32 deletion/zero-byte problems or guarantee power-loss durability. Logs sample successful writes but record all errors.

@@ -53,3 +53,6 @@ Vestavěné kopírování analyzuje `Music` a `Audiobooks`, ignoruje existujíc�
 ## Testy a logy
 
 Syntetické testy pokrývají detekci, odmítnutí nejistoty, přechod hranice obou karet, velký TCP požadavek, chyby zápisu a kopírování. Windows CI **nenahrazuje test s fyzickými SD kartami**. Logy jsou v `%LOCALAPPDATA%\FlashBridge\logs` a mohou obsahovat jména souborů i cest — před zveřejněním je anonymizuj.
+
+
+**v0.3.0:** Režim FAST vypouští readback bloků, nikoli flush. Neopravuje problém trvalého mazání FAT32 a negarantuje integritu po výpadku. Úspěšné zápisy jsou v logu vzorkované, chyby úplné.
