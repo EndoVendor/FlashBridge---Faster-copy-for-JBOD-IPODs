@@ -41,9 +41,11 @@ class TestFusedWrites(unittest.TestCase):
         self.reads.clear()
         payload = bytes(range(256))*4096
         stats = self.dev.write_volume(pos, payload)
-        self.assertEqual(stats, dict(physical_write_calls=1,
-                                     physical_write_bytes=MIB+ALIGN,
-                                     rmw_read_calls=2, rmw_read_bytes=8192))
+        self.assertEqual({k: stats[k] for k in ('physical_write_calls', 'physical_write_bytes',
+                                                 'rmw_read_calls', 'rmw_read_bytes')},
+                         dict(physical_write_calls=1, physical_write_bytes=MIB+ALIGN,
+                              rmw_read_calls=2, rmw_read_bytes=8192))
+        self.assertGreaterEqual(stats['rmw_read_seconds'], 0)
         self.assertEqual(len(self.writes), 1)
         self.assertEqual(self.writes[0][1] % ALIGN, 0)
         self.assertEqual(self.writes[0][2], MIB + ALIGN)

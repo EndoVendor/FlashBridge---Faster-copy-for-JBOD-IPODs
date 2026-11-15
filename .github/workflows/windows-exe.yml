@@ -1,0 +1,54 @@
+name: Build unsigned Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'release/**'
+  pull_request:
+    paths:
+      - 'flashbridge*.py'
+      - 'assets/**'
+      - '.github/workflows/windows-exe.yml'
+      - 'README*'
+      - 'RELEASE_NOTES.md'
+permissions:
+  contents: read
+jobs:
+  windows-portable:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: 'x64'
+      - name: Compile + synthetic test suite
+        shell: pwsh
+        run: |
+          python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_gui.pyw flashbridge_i18n.py flashbridge_inspector.py flashbridge_imdisk_setup.py
+          python -m unittest discover -s tests -v
+      - name: Build FlashBridge.exe
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pyinstaller==6.22.3
+          python -m PyInstaller --clean --noconfirm --onefile --windowed --uac-admin --noupx --name FlashBridge --icon assets/flashbridge.ico flashbridge_gui.pyw
+      - name: Inspect PE and stage distributable
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          p = Path("dist/FlashBridge.exe")
+          assert p.exists(), "Missing executable"
+          assert p.read_bytes()[:2] == b"MZ", "Not a Windows PE executable"
+          assert p.stat().st_size > 100000, "Suspiciously small executable"
+          '@ | python -
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item dist/FlashBridge.exe, README.md, README.cs.md, RELEASE_NOTES.md, LICENSE -Destination release/
+          Get-FileHash release/FlashBridge.exe -Algorithm SHA256 | Format-List | Out-File -FilePath release/SHA256.txt -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED
+          path: release/
+          if-no-files-found: error
+          retention-days: 30

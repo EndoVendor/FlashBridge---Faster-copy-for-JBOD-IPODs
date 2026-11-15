@@ -1,14 +1,19 @@
-# FlashBridge v0.3.1-alpha — Partially tested / experimental
+# FlashBridge v0.3.3-rc2 — PARTIALLY TESTED / ČÁSTEČNĚ TESTOVÁNO
 
-- **FAST (GUI default):** write + flush only, **no immediate SHA-256 readback**.
-- **VERIFIED:** previous write + flush + per-block readback + SHA-256.
-- Policy fixed for entire mount; user explicitly authorizes physical RW.
-- Fault latch retained, including device-specific WRITE/FLUSH/READBACK diagnostics.
-- FAST samples successful I/O records and emits cumulative `IO_STATS`; GUI shows rolling 10s confirmed throughput.
-- Fuses two edge-preserving 4KiB RMW boundaries plus interior into one physical WRITE for misaligned requests; keeps touched-media-only flush.
-- Adds physical write call/byte and RMW read call/byte counts to logs. Actual performance remains unmeasured.
-- **Known unresolved:** permanent Shift+Delete behavior, zero-byte entries, prior WinError 55 device I/O failure.
-- **No physical USB/SD hardware qualification; do not deploy over an active mount.**
-- 40 synthetic unit/integration tests; Windows/Linux CI must pass before release completion.
+**Near-final release candidate — experimental software provided "AS IS" without warranty under the MIT license.** It is not a stable, certified or universally compatible disk utility. Back up important data; do not use the only copy.
 
-Measured development hardware: ~35–36 ms/MiB physical write and ~28 ms/MiB readback. Previous Fast measurements were ~25 MB/s, but v0.3.1 has not been measured on physical SD media; no additional speedup claim is made. This is **not a guaranteed measured FAST throughput**.
+- Removed the optional Music/Audiobooks missing-only copy wizard **from the GUI**. Copy ordinary files using Windows File Explorer / Total Commander instead. Internal compatibility code remains for tests.
+- Added a bilingual, six-tab **Help & safety / Nápověda a bezpečnost** information toolbox covering requirements, workflow, safe unmount, safety and diagnostic logs.
+- Revised normal ImDisk unmount failure handling: when a virtual unit remains and `imdisk -d` refuses, preserve proxy/media, log `UNMOUNT_BUSY`, show actionable guidance to close all Explorer / Commander windows (including those on other drives), and offer **Retry**. No automatic process termination, no forced removal.
+- Added a Windows **PyInstaller single-EXE build workflow** (console-free, UAC admin manifest, custom icon) and clarified prerequisites and release gates. ImDisk driver must still be installed separately; output unsigned.
+- Rewrote English and Czech README for users, including known risks, first-run guide and physical-medium removal precautions.
+- **No changes to the physical write path** from v0.3.2-alpha (sector-aware writes, Fast/Verified, synchronous flush, fail-closed faults).
+
+Validation: **62 synthetic tests passed** on Windows and Linux, using Python 3.10 and 3.13. A real Windows x64 EXE was built successfully by GitHub Actions (run #43717489315); a development user ran rc2 elevated on Windows with actual physical-card writes and supplied a timestamped diagnostic log. **Still not verified:** independent disposable-media recovery/integrity testing, the inspector with a live assembled iPod, opt-in ImDisk installer on a target PC, and blocked-unmount retry. Do not label this release stable before those gates are satisfied.
+
+### rc2 additions
+
+- Added a read-only iPod storage inspector, including independent snapshot of the assembled iPod device and partition/FAT32 structures. First capture JSON snapshots of the two original SD cards individually, then connect the assembled iPod through USB and compare sampled block digests across both possible concatenation orders. It never formats, writes, installs firmware, infers bootability or grants RW. A non-linear adapter cannot be reconstructed from these limited samples.
+- Added an opt-in ImDisk installer assistant: official HTTPS download into a fresh directory, valid vendor Authenticode signature required before launching; if verification fails, link to vendor's official download site instead. No silent driver installation or bundled binary.
+- Added separate synthetic tests for sampling, order comparisons, failure cases and vendor-only redirects. GUI bilingual smoke checked with Tk virtual display; Windows native install and disk behavior still require acceptance tests.
+- **Not implemented:** initializing SD media for the iPod, repartitioning, FAT32 formatting, bootloader or firmware provision, automated clone/restore, and support for arbitrary flash adapter layouts. Those require more independent hardware evidence.

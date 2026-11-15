@@ -1,134 +1,92 @@
-# FlashBridge
+# FlashBridge — v0.3.3-rc2
 
-> **NOVĚ: FlashBridge v0.3.3-rc2 — kandidát s Windows EXE.** [Podrobný český návod](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/blob/release/flashbridge-v0.3.3-rc2/docs/USER_GUIDE.cs.md) · [English guide](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/blob/release/flashbridge-v0.3.3-rc2/docs/USER_GUIDE.md) · [Stažení sestaveného EXE → Artifacts](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/actions/runs/43717489315) · [větev rc2](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/tree/release/flashbridge-v0.3.3-rc2).
+> **Začni zde — v0.3.3-rc2 (částečně testovaný release candidate):** [Podrobný návod česky](docs/USER_GUIDE.cs.md) · [English guide](docs/USER_GUIDE.md) · [Bezpečnost](SECURITY.cs.md) · [Hardwarová přejímka](RELEASE_CHECKLIST.md)
 >
-> **Pozor na verze:** hlavní větev **main** stále obsahuje starší zdrojový kód **v0.3.1-alpha**. Rc2 a aktualizované návody jsou na samostatné větvi **release/flashbridge-v0.3.3-rc2**, než proběhne hardwarová přejímka. Rc2 zkoumá zvlášť obě karty a složený iPod bez zápisu, umožňuje volitelnou instalaci ImDisku a připojuje existující podporované FAT32 JBOD. **Neformátuje karty a neinstaluje firmware iPodu.** Experimentální přímý zápis může poškodit data; nepoužívej jedinou kopii.
+> **Windows EXE:** [Stáhni úspěšné sestavení → Artifacts](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/actions/runs/43717489315) (artefakt **FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED**). Rozbal ZIP a spusť **FlashBridge.exe** s právy správce; **Python ani CMD nejsou potřeba**. Ovladač **ImDisk se instaluje zvlášť**, případně tlačítkem **Nainstalovat ImDisk…**. Nejde o podepsaný stabilní GitHub Release; artefakty Actions časem expirují.
+>
+> **Co umí:** inspekci **karty A, karty B a složeného iPodu** bez zápisu a připojení **existujícího podporovaného dvoukartového FAT32 JBOD**. **Neformátuje karty, nevytváří oddíly iPodu ani neinstaluje firmware.** Fyzický RW je experimentální — nepoužívej jedinou kopii důležitých dat.
 
-**Automatická identifikace dvoukartového FAT32 JBOD, připojování a monitoring ve Windows.**  
-[English — hlavní dokumentace](README.md) | **Čeština**
+**Správce dvoukartového FAT32 JBOD pro Windows** · [English](README.md) · [Poznámky k vydání](RELEASE_NOTES.md)
 
-> **Stav: PARTIALLY TESTED (ČÁSTEČNĚ TESTOVÁNO) · v0.3.1-alpha · experimentální zdrojová verze.** Detekce pouze pro čtení byla v původním vývojovém scénáři použita se skutečnými kartami. Tato veřejná verze prošla simulovanými testy, **nikoliv nezávislou certifikací kombinace Windows/ImDisk/USB**. Přímý fyzický zápis může poškodit souborový systém. Kontrola boot sektoru není zárukou integrity souborů.
+**Stav: TÉMĚŘ FINÁLNÍ RELEASE CANDIDATE — EXPERIMENTÁLNÍ SOFTWARE POSKYTOVANÝ „TAK, JAK JE“, BEZ ZÁRUKY.** Windows EXE bylo sestaveno a použito pro skutečné přenosy na vývojové konfiguraci; **nejde však o stabilní ani hardwarově certifikované vydání**. Inspektor, průvodce instalací ImDisku a řešení blokovaného odpojení ještě potřebují hardwarovou přejímku. FlashBridge neopravuje FAT32. **Nepoužívej jedinou kopii důležitých dat.** Fyzický zápisový engine je stejný jako v0.3.2-alpha. Viz [vyloučení záruk v licenci MIT](LICENSE) a [bezpečnostní omezení](SECURITY.cs.md).
 
-FlashBridge je desktopová aplikace s GUI Tkinter. Z dvojice flash médií skládá **sekvenční (konkatenovaný)** virtuální disk bez vytváření jeho obrazu. Pořadí určuje podle obsahu médií, nikoliv značky, kapacity nebo čísla `PhysicalDrive`. Existující FAT32 pak připojuje přes externí [ovladač ImDisk](https://www.ltr-data.se/opencode.html/#ImDisk) a lokální TCP proxy.
+## Co aplikace dělá
 
-Vznikl kvůli pomalým přenosům přes USB rozhraní iPodu. Přímé čtečky toto úzké hrdlo mohou obejít, **ale vyšší rychlost není zaručena pro každý hardware**.
+FlashBridge zpřístupní **existující navazující (concatenated) FAT32 svazek na dvou kartách** jako jeden virtuální disk Windows. **Nevytváří JBOD znovu, neformátuje, neupravuje tabulky oddílů, neinstaluje firmware iPodu ani nezapisuje jako RAID0.** U flashově upraveného iPodu může obejít pomalý přenos přes USB rozhraní iPodu pomocí dvou samostatných čteček.
 
-## Podporované funkce a hranice
+Pořadí karet určuje z MBR, BPB FAT32, záložního boot sektoru, FSInfo a počátků FAT tabulek. Neznámá nebo nejednoznačná dvojice se neodhadne. Před připojením se znovu ověřuje identita zařízení, pořadí a geometrie svazku.
 
-| Funkce | Stav |
-|---|---|
-| Windows 10/11, Python 3.10+, GUI Tkinter | Cílové prostředí; integrace potřebuje další ověření na hardwaru |
-| Dvě USB/SD flash média různých výrobců a kapacit | Ano, pouze při jednoznačné identifikaci |
-| Sekvenční FAT32 svazek překračující první médium | Podporovaný návrh |
-| Automatické pořadí dle MBR, FAT32, záložního sektoru a FSInfo | Implementováno, při nejistotě zablokuje zápis |
-| Připojení jen pro čtení přes ImDisk | Implementováno |
-| RW připojení, potvrzení zápisu a diagnostické logy | **Experimentální** |
-| Doplnění chybějících Music/Audiobooks včetně SHA-256 | Implementováno, nepřepisuje existující soubory |
-| Libovolný RAID/JBOD, RAID 0, tři a více karet, exFAT | **Nepodporováno** |
-| Úplná diagnostika fyzického zdraví karet či automatická oprava FAT | **Nepodporováno** |
+## Požadavky
 
-*Flash-agnostic* znamená nezávislost na značce, kapacitě a číslování disků. Neznamená možnost bezpečně odhadnout neznámý layout libovolného pole.
+- Windows 10/11 x64, práva správce, **dvě samostatné USB čtečky** a dvě původní karty tvořící podporované JBOD FAT32.
+- Samostatná instalace **ImDisk Virtual Disk Driver** včetně dostupného `imdisk.exe` v PATH. [Oficiální ImDisk](https://www.ltr-data.se/opencode.html/#ImDisk). FlashBridge EXE **neobsahuje** ovladač ImDisk ani jeho instalátor.
+- Před použitím experimentálního RW režimu spolehlivá záloha. FAT32 nemá žurnál.
+- V uživatelské distribuci **`FlashBridge.exe`**; ke spuštění není třeba Python, CMD ani PowerShell. EXE samo vyvolá požadavek UAC. Program **není digitálně podepsaný** a může zobrazit varování SmartScreen.
 
-## Známý problém: mazání v RW režimu
+## Doporučený postup
 
-**Nevyřešeno a pozorováno na vývojovém JBOD:** některé smazané soubory
-zůstávaly v adresáři nebo měly nulovou velikost. **Oprava zatím nebyla potvrzena.**
-Příčinou mohou být přerušené aktualizace FAT či adresářů při selhání proxy,
-ale není to prokázané. FlashBridge nemá transakční obnovu ani plnohodnotnou
-kontrolu FAT. **Nepoužívej RW na jedinou kopii důležitých dat a nespoléhej na
-správné uvolnění místa mazáním.** Při výskytu ukonči zápisy a bezpečně odpoj
-svazek; opravy bez diagnózy nespouštěj.
+1. Obě původní JBOD karty vlož do samostatných čteček. Pokud Windows nabídnou formátování, **odmítni**.
+2. Nainstaluj samostatně ImDisk. Spusť **`FlashBridge.exe`** a schval UAC.
+3. Klikni **Najít JBOD automaticky**. Zkontroluj důkazy, pořadí **PRVNÍ/DRUHÁ** a geometrii FAT32. Nejasnosti nepřekonávej ručním odhadem.
+4. Vyber volné písmeno, obvykle `R:`. Začni **Připojit RO**, což umožní prohlížet bez zápisu.
+5. Jen pokud potřebuješ měnit soubory, ověř zálohu, vyber **FAST** nebo **VERIFIED**, použij **Připojit RW** a potvrď ochrannou frázi. Samotné soubory kopíruj Průzkumníkem/Total Commanderem. **Volitelný průvodce kopírováním Music/Audiobooks byl z GUI odstraněn.**
+6. Dokonči kopírování a zavři **všechna okna** Průzkumníka a Total Commanderu, i když zrovna ukazují jinou jednotku, například `C:`. Zavři také dialogy pro práci se soubory, terminály a další programy, které mohly zjišťovat disky.
+7. Klikni **Bezpečně odpojit**. Pokud ImDisk odmítne odebrání, nech karty připojené, zavři zbývající okna a klikni **Opakovat**. Počkej na potvrzené odebrání virtuálního disku.
+8. Teprve pak bezpečně vysuň obě fyzické USB čtečky ve Windows a vrať karty do iPodu.
 
-## Zrychlení zápisu v0.3.1-alpha: FAST a VERIFIED
+## Proč bezpečné odpojení někdy nejde
 
-**Před připojením RW** vyber způsob zápisu; za provozu přepnutí není možné.
+Normální odpojení používá příkaz `imdisk.exe -d -m R:` (s aktuálním písmenem). V testu odmítalo odebrání, pokud zůstalo otevřené **jakékoliv okno Průzkumníka nebo Commanderu, dokonce i na C:, nikoli R:**. Není tím prokázáno, že každé takové okno vždy drží otevřenou jednotku R:, ale jde o reálný problém pozorovaný na Windows.
 
-| Režim | Fyzický zápis | FlushFileBuffers | Readback + SHA-256 po bloku |
-|---|---|---|---|
-| **FAST (výchozí)** | Ano | Po každém požadavku, jen dotčené karty | **Ne** |
-| VERIFIED | Ano | Po každém požadavku, jen dotčené karty | Ano, celý požadavek |
+Nově FlashBridge zobrazí srozumitelné vysvětlení, zapíše událost `UNMOUNT_BUSY`, **neukončí proxy ani přístup k médiím** a nabídne **Opakovat**. Nezabíjí procesy, nerestartuje Explorer a nepoužívá vynucené `imdisk -D` či nouzové `-R`. Mohly by přerušit aktualizaci FAT32 a poškodit data. Pokud se odpojení stále nedaří, zachovej logy a zjisti proces držící jednotku. **Nikdy nevyjímej kartu, dokud ImDisk stále eviduje virtuální svazek.**
 
-**FAST nekontroluje obsah zapsaných bloků.** Windows dostane potvrzení až
-po dokončení zápisu a návratu `FlushFileBuffers`, ale ani úspěšný flush
-není absolutní zárukou zachování dat při výpadku USB nebo napájení.
-FAT32 nemá žurnál a přerušený zápis metadat může svazek poškodit v obou režimech.
+## Režimy a bezpečnost
 
-Na vývojovém hardwaru bylo naměřeno zhruba **35–36 ms/MiB na zápis** a
-**28 ms/MiB na readback**. Vypuštění readbacku dává teoretický strop
-**27–29 MiB/s při aktivních zápisech**, nikoli garantovanou rychlost
-kopírování. Prvních 200 MB/s v Exploreru mohlo být zásadně ovlivněno cache.
-Sekvenční JBOD nezapisuje automaticky paralelně na dvě karty.
+| Režim | Funkce | Omezení |
+|---|---|---|
+| RO | Virtuální disk jen pro čtení | Vhodné pro kontrolu, nikoli důkaz zdraví FAT32 |
+| RW FAST | Zápis na fyzická média a `FlushFileBuffers` před potvrzením každého zápisového požadavku | Rychlejší, bez zpětné kontroly dat; firmware může používat cache |
+| RW VERIFIED | Totéž + SHA-256 porovnání zpětně přečtených bloků | Pomalejší, stále bez záruky proti výpadku napájení |
 
-Zůstává optimalizace původního 2KiB posunu: předčítají se jen krajní neúplné
-4KiB bloky, nikoli celý 1MiB blok. Synchronizuje se jen dotčená karta,
-obě pouze při přechodu přes jejich hranici.
+**Známé nevyřešené chyby:** Trvalé mazání (`Shift+Delete`) někdy ponechávalo nulové soubory nebo nevracelo místo. V dřívějších relacích se vyskytl `WinError 55`. Nespoléhej na bezpečnost mazání na RW svazku. Nástroj neprovádí opravy CHKDSK, formátování, automatické opravy, násilné odpojování, syntetické zápisy ani write-behind cache.
 
-FAST omezuje objem běžných logů, ale chyby fyzického zápisu a flush eviduje
-podrobně. Každých 64 požadavků zapisuje `IO_STATS` se souhrnnými hodnotami.
-GUI ukazuje průběžnou rychlost za posledních **10 sekund**, nikoli rychlost
-jediného zápisového bloku. Plná diagnostika požadavků zůstává v režimu VERIFIED.
+## Nápověda a diagnostika
 
-**Nevyřešené mazání:** `Shift+Delete` může zanechávat položky nebo nulové
-soubory; běžný `Delete` může pouze přesouvat do Koše. Režim FAST toto neopravuje.
+Tlačítko **Nápověda a bezpečnost** otevře šest přehledů: Přehled, Postup, Odpojování, Bezpečnost, Diagnostika a Inspektor iPodu. Obsah je anglicky i česky a vysvětluje požadavky, postup, interpretaci režimů a řešení blokací.
 
-## Instalace a použití
+Logy: `%LOCALAPPDATA%\FlashBridge\logs\` (`.log`, `.jsonl`). V GUI je tlačítko **Otevřít složku logů**. `IO_STATS` obsahuje souhrnné bajty i rozklad aktivního zápisu, skutečně uplynulého času, čekání, čtení a fyzických operací. Ve FAST režimu jsou jednotlivé úspěšné `IO_END` jen vzorkované; nesčítej je jako všechny zápisy.
 
-1. Rozbal ZIP například do `C:\FlashBridge`; nespouštěj program přímo z archivu.
-2. Nainstaluj Python 3.10+ s Tkinter a originální ovladač a příkazový nástroj ImDisk. **ImDisk není součástí balíčku.**
-3. Spusť `START_FlashBridge.cmd` (vyžádá práva správce). Alternativně spusť jako správce `python flashbridge_gui.pyw`.
-4. Vpravo nahoře přepni **Čeština** nebo **English** (výchozí).
-5. Nech automaticky rozpoznat **jedinou jednoznačnou dvojici**. Zkontroluj doložené pořadí. Pokud automatika dvojici nedokáže prokázat, vyber dvě média a nech je explicitně ověřit.
-6. Vyber volné písmeno. Před RW zvol **FAST** (výchozí, bez readbacku) nebo **VERIFIED** (se zpětným ověřováním). **Připojit RW (experimentální)** vyžaduje výslovné potvrzení zápisu na obě karty; **Připojit RO** nezapisuje.
-7. Chceš-li doplnit hudbu, vyber zdroj obsahující `Music` a `Audiobooks`, použij **Zjistit chybějící** a zkontroluj volné místo. Potom **Kopírovat jen chybějící**. Existující cesty se nepřepisují.
-8. Zavři otevřené soubory a zvol **Bezpečně odpojit**. Počkej, až zařízení zmizí z ImDisku. Fyzické čtečky odeber bezpečně přes Windows.
+Při testu 15. 11. 2026 šlo běžně o 27–30 MiB/s s občasnými špičkami 40–50+ MiB/s. Výkon závisí na kartách, čtečkách a zátěži; **nejde o záruku**. Experiment s ventilátorem neprokázal jednoznačně tepelnou příčinu kolísání.
 
-### Bezpečnost
+**Soukromí:** logy mohou obsahovat názvy disků, cesty a soubory. Před zveřejněním je zkontroluj a případně anonymizuj.
 
-- Detekce **neformátuje, neopravuje FAT, nepouští CHKDSK, nemaže, nezrcadlí ani nezapisuje testovací soubory**.
-- Před připojením opět ověřuje identitu, kapacitu a geometrii; systémové/bootovací disky vylučuje.
-- Nejednoznačné pořadí a neshoda základních FAT hlaviček RW blokují. Nejde ale o kompletní kontrolu konzistence FAT32.
-- Pro fyzické zápisy používá 4KiB zarovnání s read-modify-write a velké požadavky zpracovává po částech. Po chybě zablokuje další zápisy a předá chybu ImDisku.
-- V obou RW režimech požaduje `FlushFileBuffers`; **pouze VERIFIED** provádí plný SHA-256 readback. Firmware čtečky či flash může mít vlastní cache; **nejde o záruku trvalého uložení po náhlém výpadku**.
-- Existující soubory se přeskakují **podle cesty** — již existující, ale poškozený či nedokončený soubor se automaticky neopraví. Soubory nad 4 GiB nelze uložit na FAT32.
+## Windows EXE, zdrojový kód a přejímka
 
-### Logování a soukromí
+Koncová distribuce má obsahovat **`FlashBridge.exe`**, nikoli `.cmd`. Workflow `.github/workflows/windows-exe.yml` sestavuje EXE pomocí PyInstaller na Windows runneru, přikládá README, licenci a poznámky k vydání a zveřejňuje výsledek jako GitHub Actions artifact. EXE vyžaduje UAC, je bez konzole a **není podepsaný**.
 
-Logy se ukládají do `%LOCALAPPDATA%\FlashBridge\logs\` jako `.log` a rotovaný `.jsonl`. Obsahují stav, názvy zařízení, offsety, délky operací a diagnostiku chyb. **Mohou obsahovat úplné cesty a názvy skladeb** — před sdílením na GitHubu je zkontroluj a anonymizuj. Nezveřejňuj obrazy karet ani hudební soubory.
+Vývojář může na Windows sestavení opakovat instalací `pyinstaller==6.22.3` a příkazem `python -m PyInstaller --clean --noconfirm --onefile --windowed --uac-admin --name FlashBridge --icon assets\flashbridge.ico flashbridge_gui.pyw`. PyInstaller musí pro Windows EXE běžet **na Windows**. Linuxový test nevytvoří ani neotestuje funkční Windows EXE.
 
-### Testy
+Testy: `python -m unittest discover -s tests -v` a `python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_i18n.py`. Syntetické testy **nenahrazují** integrační zkoušky na skutečných kartách. Původní pomocné kopírovací funkce zůstaly ve zdrojovém `flashbridge_core.py` kvůli kompatibilitě a testům, **nejsou dostupné v GUI**.
 
-```powershell
-python -m unittest discover -s tests -v
-python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_gui.pyw flashbridge_i18n.py
-```
+Podporováno: jednoznačně identifikovaný dvoukartový concatenated FAT32, RO/RW proxy ImDisk, EN/CS GUI, diagnostika. Nepodporováno: obecné JBOD, exFAT, RAID striping, 3+ karet, certifikace stavu médií, oprava souborového systému a instalace bootloaderu iPodu.
 
-CI testuje syntetická média na Windows a Linuxu. Neověřuje reálné přenosové rychlosti ani fyzickou bezpečnost. Podrobnosti: [architektura](docs/ARCHITECTURE.cs.md), [bezpečnost](SECURITY.cs.md) a [spolupráce](CONTRIBUTING.md).
+Před veřejným stabilním vydáním je nutno ověřit sestavení a spuštění EXE na Windows 10/11, přítomnost ImDisk, běžné i blokované odpojení (při otevřeném Průzkumníku), RO čtení a **RW jen na postradatelných testovacích kartách** včetně ověření souborů a zotavení po výpadku.
 
-**Licence:** [MIT](LICENSE) pro zdrojový kód FlashBridge. Windows a ImDisk jsou samostatné produkty s vlastními licencemi. Balíček neobsahuje podepsaný `.exe` a zatím nejde o produkčně certifikovanou aplikaci.
+Licence MIT ([LICENSE](LICENSE)). ImDisk se instaluje zvlášť a podléhá vlastní licenci. Viz [Bezpečnost](SECURITY.cs.md), [Architektura](docs/ARCHITECTURE.cs.md) a [Přejímací seznam](RELEASE_CHECKLIST.md).
 
+## Nedestruktivní inspektor iPodu (novinka rc2)
 
-**Klasifikace vydání: Partially tested.** V lokálním prostředí prošlo 33 syntetických testů. Automatická detekce dvojice reálných karet byla ověřena ve vývojovém scénáři. Publikovaná alfa verze nemá nezávislé ověření kombinace Windows/ImDisk/USB a fyzické RW zůstává experimentální. Bez záruky zvýšení výkonu nebo bezpečnosti dat.
+**FlashBridge nikdy neformátuje SD karty ani na ně neinstaluje iPod firmware.** Máme pouze jediný referenční iPod 5/5.5G a jeden adaptér. Je to příliš malý vzorek pro univerzální postup inicializace. iPod může mít samostatnou partition pro firmware a partition FAT32; geometrie sektorů se může lišit.
 
-### Analýza rychlosti (pouze čtení logu)
+1. Vyjmi první kartu, vlož ji samostatně do čtečky, vyber právě jeden fyzický disk a zvol **Uložit otisk vybrané karty (RO)**. Ulož JSON A. Totéž proveď s druhou kartou (JSON B). Neodsouhlasuj případnou nabídku Windows na inicializaci ani formátování.
+2. Vrať obě karty do původního adaptéru a iPodu. Připoj iPod přes USB v diskovém režimu, obnov seznam a identifikuj jeho fyzický disk podle kapacity a označení.
+3. Vyber iPod disk, zvol **Porovnat disk iPodu (RO)**, načti dva uložené otisky. Aplikace ověří vzorky z obou možných pořadí při lineárním spojení.
+4. Výsledek obsahuje shody a neshody malých SHA-256 vzorků a rozdíl kapacit. **Ani úplná shoda nezaručuje bootovatelnost, úplnou integritu ani univerzální podporu adaptéru.** Neshoda může znamenat jinou geometrii, změněná data či jiný způsob mapování adaptéru; v takovém případě se nic nezapisuje a pořadí se nehádá.
 
-Po skončení relace spusť:
+Inspektor v protokolu také samostatně zachytí skutečně viděnou kapacitu, MBR/partition mapu, případné FAT32 struktury a vzorkované hashe samotného iPodu. Neprovádí formát, opravu, klonování, mount ani žádný zápis. Jeho report nikdy sám nepovoluje RW v běžné části aplikace. Uložené JSONy obsahují metadata a hashe, ne obsah hudby.
 
-```powershell
-python tools/profile_report.py "$env:LOCALAPPDATA\FlashBridge\logs\TVUJ_SOUBOR.jsonl"
-```
+## Volitelná instalace ImDisk
 
-Režim FAST vzorkuje běžné `IO_END`; celkový počet bajtů a fáze obsahuje
-`IO_STATS`. Počet vzorkovaných zápisů není celkový počet zápisů. Ve FAST
-je `readback_ms` nulový; VERIFIED měří plné zpětné čtení. Ani jeden režim
-nepotvrzuje zápisy před dokončením požadovaného flush.
+Tlačítko **Nainstalovat ImDisk…** po potvrzení stáhne instalátor z `static.ltr-data.se` přes HTTPS do nové prázdné složky a zkontroluje digitální podpis vydavatele prostřednictvím Windows Authenticode. Pokud podpis nelze ověřit, instalátor se **nespustí**; uživatel může otevřít oficiální web a nainstalovat ovladač ručně. Samotnou instalaci a případné UAC musí uživatel výslovně potvrdit. ImDisk má na moderních Windows známá omezení.
 
-
-### Optimalizace v0.3.1-alpha
-
-U běžného 1MiB zápisu posunutého o 2KiB vůči fyzickému 4KiB zarovnání
-nově FlashBridge po předčtení dvou okrajových 4KiB bloků provede **jediný
-zarovnaný fyzický zápis**, místo tří. Zachovává sousední data, synchronní
-flush před potvrzením, kontroly pořadí karet i zastavení po chybě. Přibyly
-úplné souhrnné počty fyzických I/O volání v logu `IO_STATS`. Zrychlení na
-skutečné čtečce zatím nebylo změřeno. Potíže `Shift+Delete` a WinError 55
-zůstávají nevyřešené. Neprovádějte upgrade během aktivního připojení RW.
+Oficiální vydavatel: https://www.ltr-data.se/opencode.html#ImDisk

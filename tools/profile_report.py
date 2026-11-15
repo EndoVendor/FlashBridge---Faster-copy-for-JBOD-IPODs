@@ -19,6 +19,7 @@ def analyze(path):
     faults = 0
     policy = None
     aggregate = None
+    mount_policy = None
     with Path(path).open('r', encoding='utf-8') as f:
         for line in f:
             try:
@@ -28,6 +29,7 @@ def analyze(path):
             kind = event.get('event')
             if kind == 'WRITE_POLICY':
                 policy = event.get('mode')
+                mount_policy = event
             if kind == 'IO_STATS':
                 aggregate = event
             if kind in ('WRITE_REJECTED', 'PHYSICAL_WRITE_FAIL',
@@ -56,6 +58,10 @@ def analyze(path):
         'media_flush_counts': touched,
         'fault_events': faults,
     }
+    if mount_policy and mount_policy.get('write_alignments'):
+        result['write_alignments'] = mount_policy['write_alignments']
+        result['reported_sector_sizes'] = {'first':mount_policy.get('first_sector_sizes'),
+                                           'second':mount_policy.get('second_sector_sizes')}
     if aggregate is not None:
         result['aggregate_confirmed_bytes'] = int(aggregate['total_bytes_written'])
         result['aggregate_confirmed_requests'] = int(aggregate['write_requests'])
@@ -77,6 +83,16 @@ def analyze(path):
                     result['aggregate_physical_io']['physical_write_calls']/requests)
                 result['aggregate_physical_io']['rmw_reads_per_request'] = (
                     result['aggregate_physical_io']['rmw_read_calls']/requests)
+        if 'rolling_wall_mib_s' in aggregate:
+            result['last_rolling_wall_mib_s'] = aggregate['rolling_wall_mib_s']
+            result['last_interval'] = {k: aggregate.get(k) for k in (
+                'interval_wall_mib_s','interval_active_mib_s','interval_wall_seconds',
+                'interval_write_seconds','interval_proxy_read_seconds',
+                'interval_proxy_read_requests','interval_proxy_read_bytes',
+                'interval_protocol_wait_seconds')}
+        if 'rmw_read_seconds' in aggregate:
+            result['cumulative_rmw_read_seconds'] = aggregate['rmw_read_seconds']
+            result['cumulative_device_write_seconds'] = aggregate.get('device_write_seconds')
         result['aggregate_note'] = ('Cumulative totals at the most recent IO_STATS snapshot; '
                                     'the final few requests may follow it.')
     if sampled:
