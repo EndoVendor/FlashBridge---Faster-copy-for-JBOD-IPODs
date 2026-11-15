@@ -13,6 +13,10 @@
 | After transfer | Cards returned to iPod; Rockbox recognized storage and files appeared accessible | NOT full-file checksum verification |
 | Throughput | Long test generally 27–30 MiB/s with faster bursts | Hardware-dependent, not guaranteed |
 
+## Newly documented filesystem-integrity issue
+
+A directly attached assembled iPod showed actual FAT32 metadata corruption after development RW sessions (bad chain links and two cross-linked clusters). CHKDSK /f repaired errors and a follow-up CHKDSK was clean; some files with misleading sizes could then be deleted. Earlier real device error WinError 55 occurred in a separate RW session. Causation is **not** established. **Do not treat existing v1.0.0 RW as data-integrity qualified, even on the reference hardware.** Investigate under [blocker #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) before broad write-mode testing.
+
 ## Unknown/untested
 
 Other iPod generations, adapter brands/models, different card sizes/brands, reader controllers, ImDisk installer on clean Windows, assembled-iPod inspector, blocked-unmount recovery, file-by-file checksum integrity, power-loss resilience, Shift+Delete and free-space reclamation. No arbitrary JBOD/exFAT/RAID0/3+ cards, formatting, firmware installation or filesystem repair.

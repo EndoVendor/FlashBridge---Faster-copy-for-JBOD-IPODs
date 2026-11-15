@@ -2,6 +2,8 @@
 
 [Česky](SECURITY.cs.md)
 
+**DATA-INTEGRITY ADVISORY (15 Nov 2026):** After development RW sessions, the reference iPod's actual FAT32 volume was found to have invalid cluster chains and cross-linked clusters. Windows CHKDSK /f repaired the reported inconsistencies and a subsequent read-only CHKDSK was clean. **The cause is unresolved** (earlier real USB/proxy WinError 55 exists); neither FlashBridge nor ImDisk has been proven solely responsible. Until [v1.1 integrity blocker #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) is resolved, **do not use RW with valuable or unique data, do not attempt permanent deletion, and do not assume a successful copy implies clean FAT32 metadata.** Start with RO, use only expendable backed-up media for experimental RW, and always safely unmount.
+
 **v1.0.0 functional prototype demonstrated by one owner on one modified iPod, provided AS IS without warranty, with raw-disk write access.** A software bug, driver issue, disconnect, or power failure can irreversibly corrupt data. RO detection does not establish the health of every file, cluster chain, or FAT entry. Read this before enabling experimental RW.
 
 The application has no online telemetry, no account access and no remote listener. However, its ImDisk localhost proxy protocol is **unauthenticated**, and an untrusted process on the same machine could potentially connect to the short-lived port. Run only on a trusted PC. Elevation to administrator is required to open physical devices.

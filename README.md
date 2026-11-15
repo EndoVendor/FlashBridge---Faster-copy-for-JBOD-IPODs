@@ -4,6 +4,7 @@
 >
 > **Windows EXE:** [Download v1.0.0 prototype release](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0) — **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip**, EXE and SHA256.txt. Extract ZIP, run EXE as administrator; **ImDisk is a separate dependency**. Experimental, unsigned, AS IS without warranty.
 >
+> **DATA-INTEGRITY ADVISORY (15 Nov 2026):** After development RW sessions, the reference iPod's actual FAT32 volume was found to have invalid cluster chains and cross-linked clusters. Windows CHKDSK /f repaired the reported inconsistencies and a subsequent read-only CHKDSK was clean. **The cause is unresolved** (earlier real USB/proxy WinError 55 exists); neither FlashBridge nor ImDisk has been proven solely responsible. Until [v1.1 integrity blocker #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) is resolved, **do not use RW with valuable or unique data, do not attempt permanent deletion, and do not assume a successful copy implies clean FAT32 metadata.** Start with RO, use only expendable backed-up media for experimental RW, and always safely unmount.
 > **What it does:** inspects **card A, card B, assembled iPod** in read-only mode and mounts only an **existing recognized two-card FAT32 concatenation**. It **never formats cards, creates iPod partitions or installs firmware**. Raw RW is experimental; protect irreplaceable data.
 
 **Two-card FAT32 JBOD manager for Windows** · [Česky](README.cs.md) · [Release notes](RELEASE_NOTES.md)

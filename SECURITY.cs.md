@@ -2,6 +2,8 @@
 
 [English](SECURITY.md)
 
+**UPOZORNĚNÍ NA INTEGRITU DAT (15. 11. 2026):** Po vývojových RW relacích byly na skutečném FAT32 svazku iPodu potvrzeny neplatné alokační řetězce a křížové odkazy. Windows CHKDSK /f nahlášené chyby opravil; následující kontrola bez oprav prošla. **Příčina není prokázána** (při starší relaci je doložen USB/proxy WinError 55). Není prokázáno, že je na vině výhradně FlashBridge nebo ImDisk. Do vyřešení [blokující závady v1.1 #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) **nepoužívej RW s cennými či jedinečnými daty, nemaž trvale a nepovažuj úspěšné kopírování za důkaz zdravé FAT32**. RO je preferovaný; pro RW jen postradatelná zálohovaná média a vždy bezpečné odpojení.
+
 **Funkční prototyp v1.0.0 potvrzený vlastníkem na jednom upraveném iPodu; experimentální program s přístupem k fyzickému zápisu, poskytovaný TAK, JAK JE, bez záruky.** Chyba aplikace, ovladače, odpojení nebo výpadek napájení mohou nenávratně poškodit data. Kontrola MBR/FAT32 neověřuje všechny soubory ani alokační řetězce.
 
 Aplikace nesbírá telemetrii ani neotevírá síťový port do internetu. TCP proxy ImDisku však na localhostu **nemá autentizaci** a jiné místní procesy mohou teoreticky komunikovat na přiděleném portu. Používej jen na důvěryhodném PC. Pro přístup k fyzickým diskům jsou potřeba práva správce.

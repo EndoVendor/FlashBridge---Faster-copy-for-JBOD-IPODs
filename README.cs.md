@@ -4,6 +4,7 @@
 >
 > **Windows EXE:** [Stáhnout prototyp v1.0.0](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0) — **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip**, EXE a SHA256.txt. Rozbal ZIP, spusť EXE jako správce; **ImDisk se instaluje samostatně**. Experimentální nepodepsaný software TAK, JAK JE, bez záruky.
 >
+> **UPOZORNĚNÍ NA INTEGRITU DAT (15. 11. 2026):** Po vývojových RW relacích byly na skutečném FAT32 svazku iPodu potvrzeny neplatné alokační řetězce a křížové odkazy. Windows CHKDSK /f nahlášené chyby opravil; následující kontrola bez oprav prošla. **Příčina není prokázána** (při starší relaci je doložen USB/proxy WinError 55). Není prokázáno, že je na vině výhradně FlashBridge nebo ImDisk. Do vyřešení [blokující závady v1.1 #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) **nepoužívej RW s cennými či jedinečnými daty, nemaž trvale a nepovažuj úspěšné kopírování za důkaz zdravé FAT32**. RO je preferovaný; pro RW jen postradatelná zálohovaná média a vždy bezpečné odpojení.
 > **Co umí:** inspekci **karty A, karty B a složeného iPodu** bez zápisu a připojení **existujícího podporovaného dvoukartového FAT32 JBOD**. **Neformátuje karty, nevytváří oddíly iPodu ani neinstaluje firmware.** Fyzický RW je experimentální — nepoužívej jedinou kopii důležitých dat.
 
 **Správce dvoukartového FAT32 JBOD pro Windows** · [English](README.md) · [Poznámky k vydání](RELEASE_NOTES.md)
