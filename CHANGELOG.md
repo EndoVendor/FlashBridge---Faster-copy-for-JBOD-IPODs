@@ -1,5 +1,12 @@
 # Changelog
 
+## Diagnostic update — experimental (2026-11-15)
+- Log exact physical media and original Windows error separately for WRITE, FLUSH, read-modify-write edge READ and post-flush READBACK failures.
+- Add DEVICE_IO_UNAVAILABLE event for WinError 55/1167; this does not assert media removal.
+- Retain fail-closed behavior after physical I/O faults. Injected faults tested only on disposable synthetic media; no real-device qualification.
+- Known unresolved issues: deletion/zero-byte entries (#1) and WinError 55 device I/O failure (#2).
+
+
 ## v0.2.1-alpha — partially tested
 - Eliminated full megabyte read/modify/write on 2KiB-misaligned volume blocks: now pre-reads only 4KiB edges and writes the aligned interior directly.
 - Closed logger file handles deterministically at GUI exit; prevents Windows temp-file locking in CI.

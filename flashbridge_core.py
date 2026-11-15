@@ -417,6 +417,23 @@ def load_optional_manifests(folder):
     return out
 
 
+class PhysicalOperationFailure(OSError):
+    """Preserve source error codes and precise media/phase without dumping data."""
+    def __init__(self, phase, physical_disk, physical_media, physical_offset, count, cause):
+        errno = getattr(cause, 'errno', None)
+        super().__init__(errno if errno is not None else 5,
+                         f'{phase} failed on {physical_media} medium, disk '
+                         f'{physical_disk}, at {physical_offset} ({count} bytes): {cause}')
+        self.phase = phase
+        self.physical_disk = physical_disk
+        self.physical_media = physical_media
+        self.physical_offset = physical_offset
+        self.count = count
+        self.root_error = repr(cause)
+        self.winerror = getattr(cause, 'winerror', None)
+        self.root_errno = errno
+
+
 class JoinedDisk:
     def __init__(self, plan: Plan, writable: bool, raw_factory=RawDevice):
         self.plan, self.writable = plan, writable
@@ -448,17 +465,43 @@ class JoinedDisk:
             offset += n
             length -= n
 
-    def read_raw(self, offset, length):
+    def _error(self, phase, dev, offset, size, cause):
+        if isinstance(cause, PhysicalOperationFailure):
+            return cause
+        is_first = dev is self.a
+        return PhysicalOperationFailure(phase,
+                 self.plan.first.number if is_first else self.plan.second.number,
+                 'first' if is_first else 'second', offset, size, cause)
+
+    def _device_read(self, dev, offset, size, phase):
+        try:
+            return dev.read_at(offset, size)
+        except Exception as exc:
+            raise self._error(phase, dev, offset, size, exc) from exc
+
+    def _device_write(self, dev, offset, payload):
+        try:
+            dev.write_at(offset, payload)
+        except Exception as exc:
+            raise self._error('WRITE', dev, offset, len(payload), exc) from exc
+
+    def _device_sync(self, dev):
+        try:
+            dev.sync()
+        except Exception as exc:
+            raise self._error('FLUSH', dev, None, 0, exc) from exc
+
+    def read_raw(self, offset, length, phase='READ'):
         with self.lock:
             out = bytearray()
             for dev, pos, n in self._slices(offset, length):
-                out.extend(dev.read_at(pos, n))
+                out.extend(self._device_read(dev, pos, n, phase))
             return bytes(out)
 
-    def read_volume(self, offset, length):
+    def read_volume(self, offset, length, phase='READ'):
         if offset < 0 or length < 0 or length > self.plan.volume_bytes - offset:
             raise ValueError('Read outside FAT32 volume')
-        return self.read_raw(self.plan.fat.offset + offset, length)
+        return self.read_raw(self.plan.fat.offset + offset, length, phase=phase)
 
     def _write_aligned_one(self, dev, offset, content):
         """Preserve only misaligned 4KiB edge blocks; stream aligned interior.
@@ -478,21 +521,21 @@ class JoinedDisk:
         if misaligned:
             edge_start = offset - misaligned
             n = min(ALIGN - misaligned, len(content))
-            edge = bytearray(dev.read_at(edge_start, ALIGN))
+            edge = bytearray(self._device_read(dev, edge_start, ALIGN, 'RMW_READ'))
             edge[misaligned:misaligned+n] = content[:n]
-            dev.write_at(edge_start, bytes(edge))
+            self._device_write(dev, edge_start, bytes(edge))
             cursor = n
             offset += n
         full = ((len(content) - cursor)//ALIGN)*ALIGN
         if full:
-            dev.write_at(offset, content[cursor:cursor+full])
+            self._device_write(dev, offset, content[cursor:cursor+full])
             cursor += full
             offset += full
         if cursor < len(content):
-            edge = bytearray(dev.read_at(offset, ALIGN))
+            edge = bytearray(self._device_read(dev, offset, ALIGN, 'RMW_READ'))
             n = len(content) - cursor
             edge[:n] = content[cursor:]
-            dev.write_at(offset, bytes(edge))
+            self._device_write(dev, offset, bytes(edge))
 
     def write_volume(self, offset, payload):
         if not self.writable:
@@ -508,8 +551,8 @@ class JoinedDisk:
         """Flush both media (used for a full-volume maintenance barrier)."""
         with self.lock:
             if self.writable:
-                self.a.sync()
-                self.b.sync()
+                self._device_sync(self.a)
+                self._device_sync(self.b)
 
     def sync_volume_range(self, offset, length):
         """Flush only media touched by an already-completed volume WRITE.
@@ -528,7 +571,7 @@ class JoinedDisk:
                 if dev not in touched:
                     touched.append(dev)
             for dev in touched:
-                dev.sync()
+                self._device_sync(dev)
             return tuple('first' if dev is self.a else 'second' for dev in touched)
 
 
@@ -720,13 +763,18 @@ class ProxyServer(threading.Thread):
                             local = absolute if first else absolute - self.plan.first.size
                             self.log.error('PHYSICAL_WRITE_FAIL', req_id=ident,
                                            logical_offset=pos, raw_offset=absolute,
-                                           physical_disk=diskno, physical_offset=local,
-                                           chunk_bytes=take, error=repr(exc),
-                                           errno=getattr(exc,'errno',None),
+                                           physical_disk=getattr(exc,'physical_disk',diskno),
+                                           physical_media=getattr(exc,'physical_media',
+                                                                'first' if first else 'second'),
+                                           physical_offset=getattr(exc,'physical_offset',local),
+                                           chunk_bytes=take, phase=getattr(exc,'phase','WRITE'),
+                                           error=repr(exc), root_error=getattr(exc,'root_error',None),
+                                           errno=getattr(exc,'root_errno',getattr(exc,'errno',None)),
                                            winerror=getattr(exc,'winerror',None))
                     pos += take
                     remaining -= take
                 if fault is None and not self.failed:
+                    stage = 'FLUSH'
                     try:
                         phase_start = time.monotonic()
                         try:
@@ -734,6 +782,7 @@ class ProxyServer(threading.Thread):
                         finally:
                             flush_seconds += time.monotonic() - phase_start
                         # Check full request after flush, without buffering it all.
+                        stage = 'READBACK'
                         actual_hash = hashlib.sha256()
                         remaining = nbytes
                         pos = offset
@@ -741,15 +790,34 @@ class ProxyServer(threading.Thread):
                         try:
                             while remaining:
                                 take = min(remaining, IO_CHUNK)
-                                actual_hash.update(self.dev.read_volume(pos, take))
+                                actual_hash.update(self.dev.read_volume(pos, take, phase='READBACK'))
                                 pos += take
                                 remaining -= take
                         finally:
                             readback_seconds += time.monotonic() - phase_start
+                        stage = 'VERIFY'
                         if actual_hash.digest() != expected_hash.digest():
                             raise OSError('FATAL: post-flush hash mismatch')
                     except Exception as exc:
                         fault = exc
+                        event = ('PHYSICAL_FLUSH_FAIL' if stage == 'FLUSH' else
+                                 'PHYSICAL_READBACK_FAIL' if stage == 'READBACK' else
+                                 'READBACK_HASH_MISMATCH')
+                        self.log.error(event, req_id=ident, logical_offset=offset,
+                                       request_bytes=nbytes, phase=getattr(exc,'phase',stage),
+                                       physical_disk=getattr(exc,'physical_disk',None),
+                                       physical_media=getattr(exc,'physical_media',None),
+                                       physical_offset=getattr(exc,'physical_offset',None),
+                                       error=repr(exc), root_error=getattr(exc,'root_error',None),
+                                       errno=getattr(exc,'root_errno',getattr(exc,'errno',None)),
+                                       winerror=getattr(exc,'winerror',None))
+                        if getattr(exc,'winerror',None) in (55, 1167):
+                            self.log.error('DEVICE_IO_UNAVAILABLE', req_id=ident,
+                                           during_stage=stage,
+                                           physical_disk=getattr(exc,'physical_disk',None),
+                                           physical_media=getattr(exc,'physical_media',None),
+                                           winerror=exc.winerror,
+                                           note='I/O path unavailable, not proof of physical removal')
                 if fault is not None or self.failed:
                     # Complete the ImDisk protocol with an ERROR response rather than
                     # abruptly dropping TCP and leaving a stuck virtual device.
