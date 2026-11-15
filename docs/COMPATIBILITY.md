@@ -15,7 +15,7 @@
 
 ## Newly documented filesystem-integrity issue
 
-A directly attached assembled iPod showed actual FAT32 metadata corruption after development RW sessions (bad chain links and two cross-linked clusters). CHKDSK /f repaired errors and a follow-up CHKDSK was clean; some files with misleading sizes could then be deleted. Earlier real device error WinError 55 occurred in a separate RW session. Causation is **not** established. **Do not treat existing v1.0.0 RW as data-integrity qualified, even on the reference hardware.** Investigate under [blocker #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) before broad write-mode testing.
+In the owner's reference use, **Shift+Delete was associated with** a small number of zero-byte/undeletable files. Checking the assembled iPod directly over USB found FAT32 allocation-chain errors, including two cross-linked clusters. Windows CHKDSK /f repaired the reported errors, a repeat CHKDSK was clean, and affected entries with restored visible sizes could be deleted. **Ordinary Delete (without Shift) worked** as a practical workaround on this device. The event was **recoverable in this specific test**, not evidence of widespread library loss. A previous WinError 55 arose in a separate session, and **causation is still unproven**. Avoid Shift+Delete and keep backups; do not describe v1.0 RW as fully integrity-qualified. See [issue #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1).
 
 ## Unknown/untested
 
@@ -30,4 +30,4 @@ Other iPod generations, adapter brands/models, different card sizes/brands, read
 5. Close file managers, successfully unmount ImDisk normally, then safely eject both readers; NEVER unplug while virtual drive is mounted.
 6. Reinsert cards, test Rockbox boot and file access, and submit a [compatibility report](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/new/choose): PASS / FAIL / INCONCLUSIVE separately for each step, with redacted logs only.
 
-**Known issue:** Shift+Delete/space reclamation unreliable. FAST doesn't read back every write. VERIFIED does not guarantee survival after power loss. Never publish private paths, unique device IDs or copyrighted music files.
+**Known issue / workaround:** Avoid Shift+Delete. Ordinary Delete worked in the owner's reference case; it is not independently certified across hardware. If FAT32 errors appear, stop FlashBridge RW, make backups and assess the fully assembled iPod separately; in the owner's case Windows `chkdsk /f` repaired them, but repair is not guaranteed. FAST doesn't read back every write. VERIFIED does not guarantee survival after power loss. Never publish private paths, unique device IDs or copyrighted music files.

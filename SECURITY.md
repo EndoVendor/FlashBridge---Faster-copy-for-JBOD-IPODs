@@ -2,7 +2,7 @@
 
 [Česky](SECURITY.cs.md)
 
-**DATA-INTEGRITY ADVISORY (15 Nov 2026):** After development RW sessions, the reference iPod's actual FAT32 volume was found to have invalid cluster chains and cross-linked clusters. Windows CHKDSK /f repaired the reported inconsistencies and a subsequent read-only CHKDSK was clean. **The cause is unresolved** (earlier real USB/proxy WinError 55 exists); neither FlashBridge nor ImDisk has been proven solely responsible. Until [v1.1 integrity blocker #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) is resolved, **do not use RW with valuable or unique data, do not attempt permanent deletion, and do not assume a successful copy implies clean FAT32 metadata.** Start with RO, use only expendable backed-up media for experimental RW, and always safely unmount.
+**KNOWN LIMITATION — Shift+Delete (owner test, 15 Nov 2026):** After permanent deletion during development RW sessions, a small number of files appeared as zero-byte or undeletable entries and FAT32 allocation errors were detected. On the assembled iPod, Windows `chkdsk D: /f` repaired the detected filesystem errors; a second `chkdsk D:` reported **no problems**. The entries then showed usable file sizes and could be deleted; ordinary **Delete (without Shift)** worked in this case. This was **recoverable in the reference test**, not widespread library loss. The precise cause is **not proven** (an earlier USB/proxy `WinError 55` also occurred), and ordinary Delete has not been certified safe across hardware. **Avoid Shift+Delete; use ordinary Delete if needed, keep backups, and safely unmount.** Experimental RW is at your own risk. [Technical issue #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1).
 
 **v1.0.0 functional prototype demonstrated by one owner on one modified iPod, provided AS IS without warranty, with raw-disk write access.** A software bug, driver issue, disconnect, or power failure can irreversibly corrupt data. RO detection does not establish the health of every file, cluster chain, or FAT entry. Read this before enabling experimental RW.
 
@@ -31,7 +31,7 @@ Open a GitHub issue with OS version, Python version, ImDisk version, card-reader
 
 ## Known unresolved deletion issue
 
-On a development JBOD, some deleted files reportedly remained or became zero-byte directory entries after previous interrupted write sessions. This behaviour is **not resolved**. Do not use experimental RW mode with irreplaceable data or assume delete/space reclamation is safe.
+**Observed in the owner's reference case:** Following Shift+Delete during experimental RW, a few directory entries appeared zero-length or undeletable. Windows CHKDSK detected FAT32 allocation errors, repaired them via `chkdsk /f` on the assembled iPod, and a subsequent check was clean; normal Delete worked in that case. No catastrophic library failure was observed, but individual FLAC content was not independently hash-verified. **Avoid Shift+Delete.** Do not infer that ordinary Delete is guaranteed safe on other hardware or that the causation is established; keep backups and report repeatable failures.
 
 
 **v0.3.0:** Fast mode skips immediate per-block readback; a successful flush remains mandatory. This increases speed but does not repair FAT32 deletion/zero-byte problems or guarantee power-loss durability. Logs sample successful writes but record all errors.

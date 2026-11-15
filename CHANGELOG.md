@@ -4,7 +4,7 @@
 
 - Owner confirms real Windows EXE transfers on a two-microSD FAT32 JBOD and Rockbox recognition after returning cards to a modified iPod.
 - Classified as an experimental community-test functional prototype, AS IS, without warranty, not hardware-qualified across adapters or generations.
-- Documentation, compatibility reporting and unsigned Windows packaging updated. The physical I/O path is unchanged; Shift+Delete remains unresolved.
+- Documentation, compatibility reporting and unsigned Windows packaging updated. The physical I/O path is unchanged. Owner later observed recoverable FAT32 metadata errors associated with Shift+Delete; normal Delete worked in the observed case and CHKDSK /f repaired the reported errors, but cause remains unresolved.
 
 
 ## v0.3.3-rc2 — Read-only iPod reference inspection + opt-in ImDisk installer

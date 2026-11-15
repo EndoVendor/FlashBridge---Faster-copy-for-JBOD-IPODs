@@ -9,7 +9,7 @@ Vlastník potvrdil skutečný přenos prostřednictvím Windows EXE na existují
 - Compared with v0.3.3-rc2, **only version/distribution/docs metadata changed**. The physical write path and error handling have **not** been modified; no new safety or adapter coverage is implied.
 - Reference setup: modified iPod Video 5.5G, two physical microSD cards in an existing supported linear FAT32 JBOD, two USB readers, Windows x64 and Rockbox. Exact adapter model unknown. Visible Rockbox files are not independently checksum-verified.
 - Needs testing: other iPod and adapter models, card/reader combinations, safe-unmount refusal and retry, fresh ImDisk installation, inspector, full file-hash comparison and recoverability.
-- **Known unresolved risk:** permanent deletion (Shift+Delete) and free-space reclamation may misbehave; do not perform risky operations on irreplaceable media. No formatting, firmware installation, CHKDSK/repair, forced unmount or automatic retries.
+- **Known Shift+Delete limitation and practical workaround:** In the owner's reference test, permanent deletion was associated with a few zero-byte/undeletable entries and FAT32 allocation errors. Windows `chkdsk /f` on the reassembled iPod repaired the reported errors; a subsequent CHKDSK was clean and ordinary **Delete (without Shift)** worked. The problem was **recoverable in this case** (no observed wholesale library loss), but its precise cause and general deletion safety remain unproven. **Avoid Shift+Delete; make backups and use RW at your own risk.** FlashBridge does not run CHKDSK/repair, format media, force-unmount or automatically retry uncertain I/O.
 - Submit test results using [compatibility matrix](docs/COMPATIBILITY.md) and a GitHub Issue; redact diagnostic logs.
 
 ---

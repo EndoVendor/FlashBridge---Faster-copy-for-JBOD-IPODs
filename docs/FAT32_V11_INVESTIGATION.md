@@ -4,15 +4,16 @@
 
 ## Evidence
 
-- Windows FAT32 CHKDSK detected invalid allocation links, invalid beginning clusters and two cross-linked clusters after prior RW development sessions; some visible zero-byte FLAC entries could not be deleted.
-- CHKDSK /f on the assembled iPod in direct Rockbox USB disk mode repaired the errors and freed 31,920 KiB; a subsequent no-fix CHKDSK reported no errors. File count remained 31,974; several entries regained an apparent normal size and became deletable. **Not proof of intact audio data or causation.**
+- The owner reports the symptoms appearing in connection with **Shift+Delete** during experimental RW. Some FLAC entries became zero-byte or undeletable; Windows FAT32 CHKDSK on the reassembled iPod found invalid allocation links, invalid beginning clusters and two cross-linked clusters. Ordinary **Delete without Shift** worked as an observed workaround in this case. This is a timing/behavior observation, not proof of exclusive causation or universal safety.
+- CHKDSK /f on the assembled iPod in direct Rockbox USB disk mode repaired the errors and freed 31,920 KiB; a subsequent no-fix CHKDSK reported no errors. File count remained 31,974; several entries regained an apparent normal size and became deletable. This was **recoverable filesystem metadata damage in one reference case, without observed loss of the whole library**. **Not proof of intact audio data or causation.**
 - A prior RW session recorded WinError 55 and Windows disk controller errors (issue #2). A later ~93.7 GB confirmed FAST physical write session recorded no write fault in its *incomplete, user-exported text log*; the log lacks a final unmount record. It therefore cannot demonstrate metadata safety through filesystem teardown.
 - FlashBridge v1.0.0 performs per-request physical FlushFileBuffers after data writes and does not perform automatic filesystem repair. It does not independently validate every FAT allocation chain, prove full directory consistency or make directory/FAT mutations atomic.
 - ImDisk upstream README documents its legacy Windows compatibility limitations; this is a **candidate layer to test**, not an adjudicated cause.
 
 ## Hypotheses to distinguish (no assumption that one is correct)
 
-1. Partial Windows FAT32 metadata transaction due to earlier USB/media/flush fault, unplug or abrupt unmount after WinError 55.
+1. Different Windows FAT32 metadata sequences for **Shift+Delete versus ordinary Delete** (Recycle Bin behavior) could expose a failure; this is the user's strongest reported trigger, but needs independent reproduction.
+2. Partial Windows FAT32 metadata transaction due to earlier USB/media/flush fault, unplug or abrupt unmount after WinError 55.
 2. ImDisk proxy/Windows FAT32 caching, flush and safe-unmount edge cases on current Windows.
 3. Physical-card/controller/USB-reader write instability or incomplete flush guarantees.
 4. FlashBridge logical-to-physical offset, crossing boundary, alignment, RMW edge behavior or protocol implementation error.

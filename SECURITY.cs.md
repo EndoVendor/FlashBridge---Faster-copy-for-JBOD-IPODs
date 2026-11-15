@@ -2,7 +2,7 @@
 
 [English](SECURITY.md)
 
-**UPOZORNĚNÍ NA INTEGRITU DAT (15. 11. 2026):** Po vývojových RW relacích byly na skutečném FAT32 svazku iPodu potvrzeny neplatné alokační řetězce a křížové odkazy. Windows CHKDSK /f nahlášené chyby opravil; následující kontrola bez oprav prošla. **Příčina není prokázána** (při starší relaci je doložen USB/proxy WinError 55). Není prokázáno, že je na vině výhradně FlashBridge nebo ImDisk. Do vyřešení [blokující závady v1.1 #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) **nepoužívej RW s cennými či jedinečnými daty, nemaž trvale a nepovažuj úspěšné kopírování za důkaz zdravé FAT32**. RO je preferovaný; pro RW jen postradatelná zálohovaná média a vždy bezpečné odpojení.
+**ZNÁMÉ OMEZENÍ — Shift+Delete (test vlastníka, 15. 11. 2026):** Po trvalém mazání během vývojových RW relací se několik souborů zobrazovalo jako nulových nebo neodstranitelných a Windows nalezly chyby alokačních řetězců FAT32. Po připojení sestaveného iPodu přímo přes USB je `chkdsk D: /f` opravil; následné `chkdsk D:` prošlo **bez chyb**. U některých záznamů se opět objevila běžná velikost a šly smazat; běžné **Delete bez Shift** v tomto případě fungovalo. V referenčním testu šlo o **opravitelný problém**, nikoli ztrátu celé knihovny. Přesná příčina **není prokázána** (dříve se objevil také USB/proxy `WinError 55`) a běžné Delete není plošně certifikované. **Nepoužívej Shift+Delete; pokud potřebuješ mazat, použij obyčejné Delete, měj zálohy a bezpečně odpojuj.** Experimentální RW je na vlastní riziko. [Technická závada #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1).
 
 **Funkční prototyp v1.0.0 potvrzený vlastníkem na jednom upraveném iPodu; experimentální program s přístupem k fyzickému zápisu, poskytovaný TAK, JAK JE, bez záruky.** Chyba aplikace, ovladače, odpojení nebo výpadek napájení mohou nenávratně poškodit data. Kontrola MBR/FAT32 neověřuje všechny soubory ani alokační řetězce.
 
@@ -29,7 +29,7 @@ Chybu lze nahlásit v GitHub Issues spolu s **anonymizovanými logy**, verzemi O
 
 ## Známý nevyřešený problém mazání
 
-Na vývojovém JBOD některé smazané soubory po přerušených zápisových relacích zůstávaly v adresáři nebo měly nulovou délku. **Příčina není prokázaná ani opravená.** Nepoužívej experimentální RW pro jedinečná důležitá data.
+**Pozorování v referenčním testu:** Po Shift+Delete při experimentálním zápisu několik souborů zůstalo jako nulových či neodstranitelných. Windows CHKDSK nalezl chyby FAT32, opravil je pomocí `chkdsk /f` na sestaveném iPodu a následná kontrola byla čistá; běžné Delete fungovalo. Nebyla pozorována ztráta celé knihovny, úplné hashe všech FLAC však nejsou ověřeny. **Nepoužívej Shift+Delete.** Běžné Delete není plošně garantované a přesná příčina není prokázána; zachovávej zálohy.
 
 
 **v0.3.0:** Režim FAST vypouští readback bloků, nikoli flush. Neopravuje problém trvalého mazání FAT32 a negarantuje integritu po výpadku. Úspěšné zápisy jsou v logu vzorkované, chyby úplné.

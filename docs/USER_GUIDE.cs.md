@@ -62,7 +62,7 @@ JSON obsahuje metadata, názvy disků a SHA-256 vzorků, nikoli kompletní obsah
 4. Vyber volné písmeno virtuální jednotky (například **R:**). Nejprve klikni **Připojit RO** a ve správci souborů ověř, že adresáře dávají smysl.
 5. Pro kopírování na kartu teprve po ověřené záloze a na postradatelných testovacích médiích zvol **FAST** nebo **VERIFIED**, klikni **Připojit RW (experimentální)** a zadej přesně **WRITE**. Povoluješ fyzický zápis, ne jen zobrazení disku.
 6. Kopíruj běžným Průzkumníkem či Total Commanderem. FlashBridge nemá zvláštní funkci „doplň chybějící Music/Audiobooks“.
-7. **Nemaž trvale soubory přes Shift+Delete.** Z vývojových běhů máme nevyřešené případy nulových souborů / neuvolněného místa; mazání není spolehlivě ověřeno. FAST není verifikace dat.
+7. **Nemaž trvale přes Shift+Delete.** V referenčním testu se při Shift+Delete objevilo několik nulových/neodstranitelných položek; **obyčejné Delete bez Shift** fungovalo. Chyby FAT32 byly následně opraveny pomocí Windows `chkdsk /f` **po sestavení iPodu a připojení přímo přes USB**; kontrola poté byla čistá. Není prokázaná výhradní příčina ani univerzální bezpečnost obyčejného Delete. Používej zálohy; FAST neověřuje obsah.
 8. Po skončení všech přenosů zavři veškeré Průzkumníky a Commandery, včetně těch otevřených na **C:**. Poté klikni **Bezpečně odpojit**. Po potvrzení odebrání ImDisku vysuň obě fyzické čtečky ve Windows a teprve potom vyjmi SD karty.
 
 Při neúspěšném odpojení **neodpojuj fyzické karty**, nevypínej FlashBridge ani nepoužívej vynucené ImDisk odstranění. Zavři programy, které mohou držet disk, a použij **Opakovat**. Pokud je stále blokováno, ulož log a zjisti držitele svazku.

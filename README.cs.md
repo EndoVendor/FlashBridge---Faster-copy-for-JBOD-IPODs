@@ -4,7 +4,8 @@
 >
 > **Windows EXE:** [Stáhnout prototyp v1.0.0](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0) — **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip**, EXE a SHA256.txt. Rozbal ZIP, spusť EXE jako správce; **ImDisk se instaluje samostatně**. Experimentální nepodepsaný software TAK, JAK JE, bez záruky.
 >
-> **UPOZORNĚNÍ NA INTEGRITU DAT (15. 11. 2026):** Po vývojových RW relacích byly na skutečném FAT32 svazku iPodu potvrzeny neplatné alokační řetězce a křížové odkazy. Windows CHKDSK /f nahlášené chyby opravil; následující kontrola bez oprav prošla. **Příčina není prokázána** (při starší relaci je doložen USB/proxy WinError 55). Není prokázáno, že je na vině výhradně FlashBridge nebo ImDisk. Do vyřešení [blokující závady v1.1 #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1) **nepoužívej RW s cennými či jedinečnými daty, nemaž trvale a nepovažuj úspěšné kopírování za důkaz zdravé FAT32**. RO je preferovaný; pro RW jen postradatelná zálohovaná média a vždy bezpečné odpojení.
+> **ZNÁMÉ OMEZENÍ — Shift+Delete (test vlastníka, 15. 11. 2026):** Po trvalém mazání během vývojových RW relací se několik souborů zobrazovalo jako nulových nebo neodstranitelných a Windows nalezly chyby alokačních řetězců FAT32. Po připojení sestaveného iPodu přímo přes USB je `chkdsk D: /f` opravil; následné `chkdsk D:` prošlo **bez chyb**. U některých záznamů se opět objevila běžná velikost a šly smazat; běžné **Delete bez Shift** v tomto případě fungovalo. V referenčním testu šlo o **opravitelný problém**, nikoli ztrátu celé knihovny. Přesná příčina **není prokázána** (dříve se objevil také USB/proxy `WinError 55`) a běžné Delete není plošně certifikované. **Nepoužívej Shift+Delete; pokud potřebuješ mazat, použij obyčejné Delete, měj zálohy a bezpečně odpojuj.** Experimentální RW je na vlastní riziko. [Technická závada #1](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues/1).
+>
 > **Co umí:** inspekci **karty A, karty B a složeného iPodu** bez zápisu a připojení **existujícího podporovaného dvoukartového FAT32 JBOD**. **Neformátuje karty, nevytváří oddíly iPodu ani neinstaluje firmware.** Fyzický RW je experimentální — nepoužívej jedinou kopii důležitých dat.
 
 **Správce dvoukartového FAT32 JBOD pro Windows** · [English](README.md) · [Poznámky k vydání](RELEASE_NOTES.md)
@@ -49,7 +50,7 @@ Nově FlashBridge zobrazí srozumitelné vysvětlení, zapíše událost `UNMOUN
 | RW FAST | Zápis na fyzická média a `FlushFileBuffers` před potvrzením každého zápisového požadavku | Rychlejší, bez zpětné kontroly dat; firmware může používat cache |
 | RW VERIFIED | Totéž + SHA-256 porovnání zpětně přečtených bloků | Pomalejší, stále bez záruky proti výpadku napájení |
 
-**Známé nevyřešené chyby:** Trvalé mazání (`Shift+Delete`) někdy ponechávalo nulové soubory nebo nevracelo místo. V dřívějších relacích se vyskytl `WinError 55`. Nespoléhej na bezpečnost mazání na RW svazku. Nástroj neprovádí opravy CHKDSK, formátování, automatické opravy, násilné odpojování, syntetické zápisy ani write-behind cache.
+**Známé omezení Shift+Delete:** V referenčním testu se při trvalém mazání objevily nulové/neodstranitelné soubory a chyby alokačních řetězců. Windows `chkdsk /f` přes USB sestaveného iPodu je opravil a následná kontrola byla čistá. **Běžné Delete bez Shift** v tomto případě fungovalo jako praktická alternativa. Shift+Delete nepoužívej; RW zůstává experimentální na vlastní riziko. Přesná příčina není potvrzena ani plošná bezpečnost mazání ověřena. FlashBridge sám CHKDSK ani jiné opravy nespouští.
 
 ## Nápověda a diagnostika
 
