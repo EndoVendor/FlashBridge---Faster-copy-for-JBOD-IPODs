@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.idea/
+.vscode/
+.pytest_cache/
+.coverage
+*.log
+*.jsonl
+*.jsonl.[0-9]*
+*.flashbridge.partial
+*.bin
+*.img
+.DS_Store

@@ -1,0 +1,97 @@
+# FlashBridge
+
+**Automatická identifikace dvoukartového FAT32 JBOD, připojování a monitoring ve Windows.**  
+[English — hlavní dokumentace](README.md) | **Čeština**
+
+> **Stav: PARTIALLY TESTED (ČÁSTEČNĚ TESTOVÁNO) · v0.2.1-alpha · experimentální zdrojová verze.** Detekce pouze pro čtení byla v původním vývojovém scénáři použita se skutečnými kartami. Tato veřejná verze prošla simulovanými testy, **nikoliv nezávislou certifikací kombinace Windows/ImDisk/USB**. Přímý fyzický zápis může poškodit souborový systém. Kontrola boot sektoru není zárukou integrity souborů.
+
+FlashBridge je desktopová aplikace s GUI Tkinter. Z dvojice flash médií skládá **sekvenční (konkatenovaný)** virtuální disk bez vytváření jeho obrazu. Pořadí určuje podle obsahu médií, nikoliv značky, kapacity nebo čísla `PhysicalDrive`. Existující FAT32 pak připojuje přes externí [ovladač ImDisk](https://www.ltr-data.se/opencode.html/#ImDisk) a lokální TCP proxy.
+
+Vznikl kvůli pomalým přenosům přes USB rozhraní iPodu. Přímé čtečky toto úzké hrdlo mohou obejít, **ale vyšší rychlost není zaručena pro každý hardware**.
+
+## Podporované funkce a hranice
+
+| Funkce | Stav |
+|---|---|
+| Windows 10/11, Python 3.10+, GUI Tkinter | Cílové prostředí; integrace potřebuje další ověření na hardwaru |
+| Dvě USB/SD flash média různých výrobců a kapacit | Ano, pouze při jednoznačné identifikaci |
+| Sekvenční FAT32 svazek překračující první médium | Podporovaný návrh |
+| Automatické pořadí dle MBR, FAT32, záložního sektoru a FSInfo | Implementováno, při nejistotě zablokuje zápis |
+| Připojení jen pro čtení přes ImDisk | Implementováno |
+| RW připojení, potvrzení zápisu a diagnostické logy | **Experimentální** |
+| Doplnění chybějících Music/Audiobooks včetně SHA-256 | Implementováno, nepřepisuje existující soubory |
+| Libovolný RAID/JBOD, RAID 0, tři a více karet, exFAT | **Nepodporováno** |
+| Úplná diagnostika fyzického zdraví karet či automatická oprava FAT | **Nepodporováno** |
+
+*Flash-agnostic* znamená nezávislost na značce, kapacitě a číslování disků. Neznamená možnost bezpečně odhadnout neznámý layout libovolného pole.
+
+## Známý problém: mazání v RW režimu
+
+**Nevyřešeno a pozorováno na vývojovém JBOD:** některé smazané soubory
+zůstávaly v adresáři nebo měly nulovou velikost. **Oprava zatím nebyla potvrzena.**
+Příčinou mohou být přerušené aktualizace FAT či adresářů při selhání proxy,
+ale není to prokázané. FlashBridge nemá transakční obnovu ani plnohodnotnou
+kontrolu FAT. **Nepoužívej RW na jedinou kopii důležitých dat a nespoléhej na
+správné uvolnění místa mazáním.** Při výskytu ukonči zápisy a bezpečně odpoj
+svazek; opravy bez diagnózy nespouštěj.
+
+## Optimalizace výkonu v0.2.1
+
+Každý úspěšný zápis je pořád synchronizován a úplně zpětně přečten s porovnáním
+SHA-256. Nově se synchronizuje **jen dotčená fyzická karta**, obě pouze při
+překročení jejich hranice. V JSONL logu jsou časy `receive_ms`,
+`physical_write_ms`, `flush_ms`, `readback_ms` a `flushed_media`.
+Sekvenční JBOD nezapisuje běžně na obě karty současně. Zvýšení rychlosti zatím
+není změřeno na skutečném Windows hardwaru.
+
+## Instalace a použití
+
+1. Rozbal ZIP například do `C:\FlashBridge`; nespouštěj program přímo z archivu.
+2. Nainstaluj Python 3.10+ s Tkinter a originální ovladač a příkazový nástroj ImDisk. **ImDisk není součástí balíčku.**
+3. Spusť `START_FlashBridge.cmd` (vyžádá práva správce). Alternativně spusť jako správce `python flashbridge_gui.pyw`.
+4. Vpravo nahoře přepni **Čeština** nebo **English** (výchozí).
+5. Nech automaticky rozpoznat **jedinou jednoznačnou dvojici**. Zkontroluj doložené pořadí. Pokud automatika dvojici nedokáže prokázat, vyber dvě média a nech je explicitně ověřit.
+6. Vyber volné písmeno. Režim **Připojit RO** neumožňuje zápis; **Připojit RW (experimentální)** vyžaduje výslovné potvrzení fyzických zápisů na obě karty.
+7. Chceš-li doplnit hudbu, vyber zdroj obsahující `Music` a `Audiobooks`, použij **Zjistit chybějící** a zkontroluj volné místo. Potom **Kopírovat jen chybějící**. Existující cesty se nepřepisují.
+8. Zavři otevřené soubory a zvol **Bezpečně odpojit**. Počkej, až zařízení zmizí z ImDisku. Fyzické čtečky odeber bezpečně přes Windows.
+
+### Bezpečnost
+
+- Detekce **neformátuje, neopravuje FAT, nepouští CHKDSK, nemaže, nezrcadlí ani nezapisuje testovací soubory**.
+- Před připojením opět ověřuje identitu, kapacitu a geometrii; systémové/bootovací disky vylučuje.
+- Nejednoznačné pořadí a neshoda základních FAT hlaviček RW blokují. Nejde ale o kompletní kontrolu konzistence FAT32.
+- Pro fyzické zápisy používá 4KiB zarovnání s read-modify-write a velké požadavky zpracovává po částech. Po chybě zablokuje další zápisy a předá chybu ImDisku.
+- Požaduje `FlushFileBuffers` a zpětné čtení, ale firmware čtečky či flash může mít vlastní cache; **nejde o záruku trvalého uložení po náhlém výpadku**.
+- Existující soubory se přeskakují **podle cesty** — již existující, ale poškozený či nedokončený soubor se automaticky neopraví. Soubory nad 4 GiB nelze uložit na FAT32.
+
+### Logování a soukromí
+
+Logy se ukládají do `%LOCALAPPDATA%\FlashBridge\logs\` jako `.log` a rotovaný `.jsonl`. Obsahují stav, názvy zařízení, offsety, délky operací a diagnostiku chyb. **Mohou obsahovat úplné cesty a názvy skladeb** — před sdílením na GitHubu je zkontroluj a anonymizuj. Nezveřejňuj obrazy karet ani hudební soubory.
+
+### Testy
+
+```powershell
+python -m unittest discover -s tests -v
+python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_gui.pyw flashbridge_i18n.py
+```
+
+CI testuje syntetická média na Windows a Linuxu. Neověřuje reálné přenosové rychlosti ani fyzickou bezpečnost. Podrobnosti: [architektura](docs/ARCHITECTURE.cs.md), [bezpečnost](SECURITY.cs.md) a [spolupráce](CONTRIBUTING.md).
+
+**Licence:** [MIT](LICENSE) pro zdrojový kód FlashBridge. Windows a ImDisk jsou samostatné produkty s vlastními licencemi. Balíček neobsahuje podepsaný `.exe` a zatím nejde o produkčně certifikovanou aplikaci.
+
+
+**Klasifikace vydání: Partially tested.** V lokálním prostředí prošlo 20 syntetických testů. Automatická detekce dvojice reálných karet byla ověřena ve vývojovém scénáři. Publikovaná alfa verze nemá nezávislé ověření kombinace Windows/ImDisk/USB a fyzické RW zůstává experimentální. Bez záruky zvýšení výkonu nebo bezpečnosti dat.
+
+### Analýza rychlosti (pouze čtení logu)
+
+Po skončení relace spusť:
+
+```powershell
+python tools/profile_report.py "$env:LOCALAPPDATA\FlashBridge\logs\TVUJ_SOUBOR.jsonl"
+```
+
+Výpis rozdělí čas mezi `physical_write_ms`, `flush_ms`, `readback_ms` a příjem
+TCP dat. Při vysokém `flush_ms` omezuje rychlost zejména flush řadiče nebo
+karty; při vysokém `readback_ms` je významná režie úplné zpětné kontroly.
+JBOD je konkatenovaný svazek, tedy nezapisuje automaticky paralelně na obě
+karty. Optimalizace pouze odstraňuje nadbytečný flush druhé karty.

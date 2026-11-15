@@ -1,0 +1,26 @@
+[project]
+name = "flashbridge"
+version = "0.2.1a0"
+description = "Evidence-based two-media FAT32 JBOD manager for Windows (alpha)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+keywords = ["flash", "JBOD", "FAT32", "ImDisk", "Windows", "iPod"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: System :: Filesystems",
+]
+# Zero required pip dependencies. ImDisk CLI/driver installed separately.
+dependencies = []
+
+[tool.setuptools]
+py-modules = ["flashbridge_core", "flashbridge_gui", "flashbridge_i18n"]
+
+[project.scripts]
+flashbridge = "flashbridge_gui:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
