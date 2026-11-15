@@ -1,5 +1,9 @@
 # FlashBridge
 
+> **NOVĚ: FlashBridge v0.3.3-rc2 — kandidát s Windows EXE.** [Podrobný český návod](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/blob/release/flashbridge-v0.3.3-rc2/docs/USER_GUIDE.cs.md) · [English guide](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/blob/release/flashbridge-v0.3.3-rc2/docs/USER_GUIDE.md) · [Stažení sestaveného EXE → Artifacts](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/actions/runs/43717489315) · [větev rc2](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/tree/release/flashbridge-v0.3.3-rc2).
+>
+> **Pozor na verze:** hlavní větev **main** stále obsahuje starší zdrojový kód **v0.3.1-alpha**. Rc2 a aktualizované návody jsou na samostatné větvi **release/flashbridge-v0.3.3-rc2**, než proběhne hardwarová přejímka. Rc2 zkoumá zvlášť obě karty a složený iPod bez zápisu, umožňuje volitelnou instalaci ImDisku a připojuje existující podporované FAT32 JBOD. **Neformátuje karty a neinstaluje firmware iPodu.** Experimentální přímý zápis může poškodit data; nepoužívej jedinou kopii.
+
 **Automatická identifikace dvoukartového FAT32 JBOD, připojování a monitoring ve Windows.**  
 [English — hlavní dokumentace](README.md) | **Čeština**
 
