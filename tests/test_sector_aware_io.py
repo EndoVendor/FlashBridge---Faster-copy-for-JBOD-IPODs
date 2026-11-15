@@ -132,7 +132,10 @@ class SectorAwareTests(unittest.TestCase):
             self.assertEqual(event['interval_proxy_read_requests'],1)
             self.assertGreater(event['interval_protocol_wait_seconds'],0.02)
             self.assertGreaterEqual(event['interval_proxy_read_seconds'],0)
-            self.assertGreater(event['interval_active_mib_s'],event['interval_wall_mib_s'])
+            # Tiny 512-byte I/O can round both rates to 0.01 MiB/s on slow CI.
+            # Verify elapsed vs active time rather than strict rounded-rate order.
+            self.assertGreaterEqual(event['interval_active_mib_s'],event['interval_wall_mib_s'])
+            self.assertGreater(event['interval_wall_seconds'],event['interval_write_seconds'])
             self.assertEqual(next(e for e in events if e['event']=='WRITE_POLICY')['write_alignments'],{'first':512,'second':512})
         finally:fx.close()
 
