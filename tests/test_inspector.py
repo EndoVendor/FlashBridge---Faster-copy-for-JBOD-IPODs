@@ -133,18 +133,20 @@ class InspectorTests(unittest.TestCase):
     def test_imdisk_accepts_verified_vendor_legal_name(self):
         from types import SimpleNamespace
         output=json.dumps({'Status':'Valid','Subject':'CN=Lagerkvist Teknisk Rådgivning i Borås HB, O=Sweden'})
+        candidate=Path('C:/test/imdiskinst.exe')  # construct before Windows-only os.name mock
         with patch('flashbridge_imdisk_setup.os.name','nt'), \
              patch('flashbridge_imdisk_setup.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=output)):
-            result=authenticode_vendor(Path('C:/test/imdiskinst.exe'))
+            result=authenticode_vendor(candidate)
         self.assertEqual(result['Status'],'Valid')
 
     def test_imdisk_rejects_unrelated_signed_publisher(self):
         from types import SimpleNamespace
         output=json.dumps({'Status':'Valid','Subject':'CN=Unrelated Software Inc'})
+        candidate=Path('C:/test/imdiskinst.exe')  # construct before Windows-only os.name mock
         with patch('flashbridge_imdisk_setup.os.name','nt'), \
              patch('flashbridge_imdisk_setup.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=output)):
             with self.assertRaises(PermissionError):
-                authenticode_vendor(Path('C:/test/imdiskinst.exe'))
+                authenticode_vendor(candidate)
 
     def test_imdisk_redirects_only_vendor_host(self):
         with self.assertRaises(ValueError):
