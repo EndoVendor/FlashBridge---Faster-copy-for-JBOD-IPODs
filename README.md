@@ -1,14 +1,14 @@
-# FlashBridge — v0.3.3-rc2
+# FlashBridge — v1.0.0 · Functional prototype
 
-> **Start here — v0.3.3-rc2 (partially tested release candidate):** [Step-by-step guide (English)](docs/USER_GUIDE.md) · [Český návod](docs/USER_GUIDE.cs.md) · [Security](SECURITY.md) · [Hardware acceptance checklist](RELEASE_CHECKLIST.md)
+> **v1.0.0 — functional prototype tested by its owner on ONE modified iPod.** [English guide](docs/USER_GUIDE.md) · [Český návod](docs/USER_GUIDE.cs.md) · [Compatibility matrix](docs/COMPATIBILITY.md) · [Security](SECURITY.md) · [Acceptance checklist](RELEASE_CHECKLIST.md)
 >
-> **Windows EXE:** [Download from the permanent GitHub prerelease → Assets](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v0.3.3-rc2) (**FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED.zip**; direct EXE and SHA256.txt also available). Extract ZIP and run **FlashBridge.exe** as administrator. No Python/CMD needed; **ImDisk is installed separately** using **Install ImDisk…** if needed. **Unsigned and experimental; not a stable or warranted release.**
+> **Windows EXE:** [Download v1.0.0 prototype release](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0) — **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip**, EXE and SHA256.txt. Extract ZIP, run EXE as administrator; **ImDisk is a separate dependency**. Experimental, unsigned, AS IS without warranty.
 >
 > **What it does:** inspects **card A, card B, assembled iPod** in read-only mode and mounts only an **existing recognized two-card FAT32 concatenation**. It **never formats cards, creates iPod partitions or installs firmware**. Raw RW is experimental; protect irreplaceable data.
 
 **Two-card FAT32 JBOD manager for Windows** · [Česky](README.cs.md) · [Release notes](RELEASE_NOTES.md)
 
-**Status: NEAR-FINAL RELEASE CANDIDATE — EXPERIMENTAL, PROVIDED "AS IS", WITHOUT WARRANTY.** The Windows EXE has been built and used for real transfers in a development setup, but this is **not a stable, hardware-certified or universally supported release**. The new inspector, ImDisk installer assistant and blocked-unmount recovery still need hardware acceptance. FlashBridge does not repair FAT32. **Never use the only copy of important data.** The physical read/write engine is unchanged from v0.3.2-alpha. See the [MIT warranty disclaimer](LICENSE) and [security limits](SECURITY.md).
+**STATUS: FUNCTIONAL PROTOTYPE v1.0.0 FOR COMMUNITY TESTING, NOT STABLE OR CERTIFIED.** The maintainer confirms a successful real Windows EXE transfer to an existing two-card FAT32 JBOD, followed by removal/reinsertion of the cards and successful Rockbox recognition with contents apparently functional (15 Nov 2026). This is ONE owner-reported reference, not full-file hash verification or compatibility certification. The raw read/write engine is unchanged from v0.3.2-alpha; the installer assistant, iPod inspector, error recovery and other adapter models still need testing. Never use the only copy of important files. See [security](SECURITY.md) and [MIT license](LICENSE).
 
 ## What it is
 
@@ -76,7 +76,7 @@ Before presenting a public stable release, verify EXE build and first launch on 
 
 MIT licensed ([LICENSE](LICENSE)); ImDisk is a separately installed dependency with its own licence. See [Security](SECURITY.md), [Architecture](docs/ARCHITECTURE.md) and [Release checklist](RELEASE_CHECKLIST.md).
 
-## Read-only storage inspector (new in rc2)
+## Read-only storage inspector (experimental)
 
 **The product does not format any SD card or provision iPod firmware.** Only one original iPod 5/5.5G and one flash adapter were investigated in the reference case; that is insufficient to derive a general iPod initialization/formatting algorithm. The Apple device may have an MBR with a dedicated firmware partition followed by a FAT32 data partition (or a different Mac layout); sector units and presentation can vary.
 

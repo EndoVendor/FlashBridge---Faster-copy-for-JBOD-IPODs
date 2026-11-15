@@ -1,8 +1,8 @@
-# FlashBridge v0.3.3-rc2 — uživatelský návod (čeština)
+# FlashBridge v1.0.0 — uživatelský návod (čeština)
 
 [English guide](USER_GUIDE.md) · [Úvod projektu](../README.cs.md) · [Bezpečnost](../SECURITY.cs.md) · [Přejímací seznam](../RELEASE_CHECKLIST.md)
 
-**Stav: release candidate; hardwarová přejímka rc2 ještě neproběhla.** Základní zápisový engine vychází z v0.3.2-alpha. FlashBridge používá přímý přístup k fyzickým kartám, proto není určený pro jedinou kopii nenahraditelných dat. Začni v režimu pouze pro čtení (RO).
+**Stav: experimentální funkční prototyp; otestovaný na JEDNOM upraveném iPodu, nikoli záruka obecné kompatibility. Poskytován TAK, JAK JE, bez záruky.**
 
 ## 1. Co program dělá — a co ne
 
@@ -14,7 +14,7 @@ Nový **iPod Storage Inspector** zkoumá **první kartu zvlášť, druhou kartu 
 
 ## 2. Stažení a první spuštění
 
-1. Otevři [trvalý GitHub prerelease v0.3.3-rc2](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v0.3.3-rc2). V části **Assets** stáhni **FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED.zip** (nebo samostatný EXE) a **SHA256.txt** pro kontrolu. Jde o **nepodepsané experimentální vydání bez záruky**, nikoli o stabilní verzi.
+1. Otevři [vydání funkčního prototypu v1.0.0](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0). V části **Assets** stáhni **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip** (nebo samostatný EXE) a **SHA256.txt** pro kontrolu. Jde o **nepodepsané experimentální vydání bez záruky**, nikoli o stabilní verzi.
 2. Rozbal stažený ZIP a přečti přiložené README. Spusť **FlashBridge.exe** ve Windows 10/11 x64 a schval výzvu správce (UAC). **Python ani CMD nepotřebuješ.** EXE není podepsané, takže Windows může zobrazit varování SmartScreen. Nepovažuj to za ověření bezpečnosti; stahuj výhradně z tohoto repozitáře a kontroluj původ.
 3. ImDisk je **samostatný ovladač**, nikoli součást EXE. Tlačítkem **Zkontrolovat ImDisk** ověř jeho dostupnost. Není-li nainstalován, použij **Nainstalovat ImDisk…**. Program stáhne instalační EXE pouze z oficiálního HTTPS hostitele LTR Data, přes Windows ověří platný Authenticode podpis očekávaného vydavatele a až poté nabídne běžnou instalaci. Pokud podpis nebo stažení nevyhoví, instalátor nespustí. V takovém případě pokračuj ručně z [oficiální stránky ImDisk](https://www.ltr-data.se/opencode.html#ImDisk).
 4. Neodsouhlasuj nabídku Windows „Inicializovat disk“ ani „Naformátovat disk“ u jednotlivých karet. **Nejde o běžné samostatné FAT32 svazky.**
@@ -91,6 +91,7 @@ Diagnostické soubory **.log** a **.jsonl** jsou ve složce **%LOCALAPPDATA%\Fla
 
 - **62 syntetických testů** prošlo na Windows a Linuxu v Pythonu 3.10 i 3.13 pro finální commit rc2.
 - Windows x64 EXE bylo úspěšně sestaveno pomocí PyInstaller a zabaleno jako GitHub Actions artifact.
-- **Neověřeno:** první spuštění a instalace ImDisku na cílovém PC, snímání skutečných karet, porovnání reálného iPodu, blokované odpojení a RW na postradatelných médiích. To jsou body hardwarové přejímky, nikoli prokázané schopnosti release kandidáta.
+- Vlastník potvrdil skutečný přenos prostřednictvím Windows EXE na existující dvoukartové FAT32 JBOD, následné vrácení karet do iPodu a jejich úspěšné rozpoznání Rockboxem s na pohled funkčními daty (15. 11. 2026). Jde o JEDEN referenční test, nikoli kontrolu hashů všech souborů ani certifikaci kompatibility.
+- **Stále neověřeno:** instalace ImDisku na čistém PC, inspektor sestaveného iPodu, blokované odpojení + Opakovat, porovnání hashů všech souborů, jiné iPody/adaptéry. Viz [matice kompatibility](COMPATIBILITY.md).
 
 Chyby hlásit přes [GitHub Issues](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues), nejlépe s verzí Windows, modelem obou USB čteček, přesným postupem a **anonymizovaným** JSONL logem. Nepřikládej celé obrazy SD karet ani osobní hudební soubory.

@@ -2,6 +2,10 @@
 
 **English is the project's primary maintenance language.** Czech GUI strings and documentation must be kept in sync with the English source. Pull requests, commit messages and issue titles should preferably be in English; Czech reports are welcome.
 
+## v1.0.0 hardware compatibility reports
+
+Please use the [compatibility matrix and safe test protocol](docs/COMPATIBILITY.md) and hardware-test GitHub issue template. Include the iPod generation, exact adapter, both cards/readers, Windows/ImDisk versions, whether RO/RW/safe unmount succeeded and whether Rockbox recognized the cards after reinsertion. Do not confuse visible files with complete checksum integrity. Use disposable or independently backed-up media; redact logs and personal paths. Report failures as well as successes. Shift+Delete remains unresolved.
+
 ## Developer workflow
 
 1. Use Python 3.10+ on a machine where a Tkinter build is available; no third-party pip packages are required.

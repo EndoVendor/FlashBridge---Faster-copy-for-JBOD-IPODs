@@ -1,0 +1,65 @@
+name: Publish v1.0 functional prototype (unsigned)
+on:
+  push:
+    branches: [main]
+    paths: ['flashbridge_core.py', 'RELEASE_NOTES.md', '.github/workflows/release-v1.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: flashbridge-v1-prototype-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: 'x64'
+      - name: Compile and synthetic tests (no physical disks)
+        shell: pwsh
+        run: |
+          python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_gui.pyw flashbridge_i18n.py flashbridge_inspector.py flashbridge_imdisk_setup.py
+          python -m unittest discover -s tests -v
+      - name: Build unsigned FlashBridge.exe
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pyinstaller==6.22.3
+          python -m PyInstaller --clean --noconfirm --onefile --windowed --uac-admin --noupx --name FlashBridge --icon assets/flashbridge.ico flashbridge_gui.pyw
+      - name: Stage and inspect native distribution
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          p=Path('dist/FlashBridge.exe')
+          assert p.is_file() and p.stat().st_size > 100000 and p.read_bytes()[:2] == b'MZ'
+          '@ | python -
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item dist/FlashBridge.exe, README.md, README.cs.md, RELEASE_NOTES.md, LICENSE -Destination release/
+          $hash=(Get-FileHash release/FlashBridge.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash *FlashBridge.exe" | Set-Content release/SHA256.txt -Encoding ascii
+          Compress-Archive -Path release/* -DestinationPath FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip
+      - name: Publish v1.0.0 from this commit, preserving prior releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.0.0 --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) { Write-Host "v1.0.0 already exists; never overwrite public assets."; exit 0 }
+          gh release create v1.0.0 FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip release/FlashBridge.exe release/SHA256.txt --target "$env:GITHUB_SHA" --title "FlashBridge v1.0.0 — FUNCTIONAL PROTOTYPE (AS IS, UNSIGNED)" --notes-file RELEASE_NOTES.md --prerelease
+          if ($LASTEXITCODE -ne 0) { throw "Release creation failed" }
+      - name: Delete old rc2 branch only when exactly unchanged
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $url="repos/$env:GITHUB_REPOSITORY/git/ref/heads/release/flashbridge-v0.3.3-rc2"
+          $old=gh api $url 2>$null
+          if ($LASTEXITCODE -ne 0) { Write-Host "Old branch already absent/not visible"; exit 0 }
+          $ref=$old | ConvertFrom-Json
+          if ($ref.object.sha -ne "19015460fe5a0f7bb5cba7018e99329959824c07") { throw "Old branch changed; refusing deletion" }
+          gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/git/refs/heads/release/flashbridge-v0.3.3-rc2"
+          if ($LASTEXITCODE -ne 0) { throw "Old branch deletion failed" }

@@ -2,7 +2,7 @@
 
 [English](SECURITY.md)
 
-**Experimentální program s přístupem k fyzickému zápisu.** Chyba aplikace, ovladače, odpojení nebo výpadek napájení mohou nenávratně poškodit data. Kontrola MBR/FAT32 neověřuje všechny soubory ani alokační řetězce.
+**Funkční prototyp v1.0.0 potvrzený vlastníkem na jednom upraveném iPodu; experimentální program s přístupem k fyzickému zápisu, poskytovaný TAK, JAK JE, bez záruky.** Chyba aplikace, ovladače, odpojení nebo výpadek napájení mohou nenávratně poškodit data. Kontrola MBR/FAT32 neověřuje všechny soubory ani alokační řetězce.
 
 Aplikace nesbírá telemetrii ani neotevírá síťový port do internetu. TCP proxy ImDisku však na localhostu **nemá autentizaci** a jiné místní procesy mohou teoreticky komunikovat na přiděleném portu. Používej jen na důvěryhodném PC. Pro přístup k fyzickým diskům jsou potřeba práva správce.
 

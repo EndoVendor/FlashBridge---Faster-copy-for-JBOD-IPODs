@@ -1,4 +1,4 @@
-# FlashBridge v0.3.3-rc2 — Release checklist / Přejímka
+# FlashBridge v1.0.0 — Functional prototype acceptance / Přejímka funkčního prototypu
 
 ## Completed in source / Hotovo ve zdrojích
 - [x] Final rc2 commit passed 62 synthetic tests on Windows/Linux, Python 3.10 and 3.13
@@ -10,6 +10,13 @@
 - [x] PyInstaller Windows EXE build workflow + custom application icon
 - [x] Physical write engine kept unchanged from v0.3.2-alpha
 - [x] Synthetic tests and compile on Linux
+
+## Owner-confirmed working reference (15 Nov 2026)
+- [x] Real elevated Windows EXE launched and real two-card FAT32 JBOD was recognized and mounted
+- [x] Real FAST file transfers to the two-card volume completed
+- [x] Cards returned to the modified iPod, Rockbox recognized the storage and the contents appeared functional
+- [ ] Independent complete file checksum verification
+- [ ] Independent cross-model adapter/iPod compatibility verification
 
 ## Still required for a stable / generally recommended release
 - [x] GitHub Windows runner built `FlashBridge.exe` successfully on the final rc2 commit (run #43717489315)
@@ -25,7 +32,7 @@
 - [ ] Virus-scan/SmartScreen and unsigned-executable distribution instructions checked
 - [ ] No personal paths, private logs or protected card images bundled
 
-**Near-final release candidate, not stable. Supplied AS IS without warranty under MIT. Do not call v0.3.3-rc2 production-safe before hardware acceptance.**
+**v1.0.0 is an experimental functional prototype, NOT stable or certified. Supplied AS IS without warranty under MIT. The reference pass does not satisfy all hardware-acceptance gates.**
 
 - [ ] On actual Windows, capture card A + card B snapshots without any write; review physical disk selection and independently captured iPod partition/FAT32 metadata
 - [ ] Compare assembled iPod USB disk against both snapshots; inspect both order outcomes and report

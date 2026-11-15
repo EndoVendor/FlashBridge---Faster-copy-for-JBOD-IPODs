@@ -26,7 +26,7 @@ import threading
 import time
 import uuid
 
-VERSION = '0.3.3-rc2'
+VERSION = '1.0.0'
 WRITE_MODE_FAST = 'fast'
 WRITE_MODE_VERIFIED = 'verified'
 WRITE_MODES = frozenset((WRITE_MODE_FAST, WRITE_MODE_VERIFIED))

@@ -1,8 +1,8 @@
-# FlashBridge v0.3.3-rc2 — User guide (English)
+# FlashBridge v1.0.0 — User guide (English)
 
 [Český návod](USER_GUIDE.cs.md) · [Project home](../README.md) · [Security](../SECURITY.md) · [Release checklist](../RELEASE_CHECKLIST.md)
 
-**Release status: partially tested release candidate, not yet hardware-qualified.** The raw-write engine is inherited from v0.3.2-alpha. FlashBridge can access physical SD cards directly: never use it with the only copy of irreplaceable data. Start with read-only (RO) operations.
+**Release status: experimental functional prototype; working reference reported on ONE modified iPod, no general compatibility assurance. Provided AS IS without warranty.**
 
 ## 1. What FlashBridge does — and does not do
 
@@ -14,7 +14,7 @@ The **iPod Storage Inspector** captures read-only evidence from **card A, card B
 
 ## 2. Download and install
 
-1. Open the [permanent v0.3.3-rc2 GitHub prerelease](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v0.3.3-rc2). Under **Assets**, download **FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED.zip** (or the standalone EXE), alongside **SHA256.txt**. This is an **unsigned, experimental prerelease**, not a code-signed stable release.
+1. Open the [v1.0.0 functional-prototype GitHub release](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0). Under **Assets**, download **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip** (or the standalone EXE), alongside **SHA256.txt**. This is an **unsigned, experimental prerelease**, not a code-signed stable release.
 2. Extract the ZIP, review the included README, and run **FlashBridge.exe** on Windows 10/11 x64. Approve the administrator/UAC prompt. **You do not need Python or a CMD launcher.** The EXE is unsigned and Windows may display a SmartScreen warning. This is not a security audit: verify the download originates from this repository.
 3. **ImDisk Virtual Disk Driver is a separate dependency** and is not bundled in the EXE. Use **Inspect ImDisk** to check it. If absent, choose **Install ImDisk…**. After confirmation, the assistant downloads the installer from LTR Data's official HTTPS host, validates its Windows Authenticode signature and expected publisher, and only then launches the interactive installer. If validation fails, it refuses automatic launch and directs you to the [official ImDisk site](https://www.ltr-data.se/opencode.html#ImDisk).
 4. If Windows offers to **Initialize** or **Format** either loose SD card, **cancel**. A component of a JBOD should not be treated as an independent FAT32 volume.
@@ -91,6 +91,7 @@ Logs are written to **%LOCALAPPDATA%\FlashBridge\logs** as human-readable **.log
 
 - The final rc2 commit passed **62 synthetic tests** on Windows and Linux, with Python 3.10 and 3.13.
 - A native Windows x64 EXE was successfully built with PyInstaller and published as a GitHub Actions artifact.
-- **Still unverified on real hardware:** first launch/UAC on the target PC, ImDisk installation, real card snapshots, assembled-iPod comparison, refused unmount/retry and disposable-media RW integrity testing. These remain hardware acceptance checks.
+- The maintainer confirms a successful real Windows EXE transfer to an existing two-card FAT32 JBOD, followed by removal/reinsertion of the cards and successful Rockbox recognition with contents apparently functional (15 Nov 2026). This is ONE owner-reported reference, not full-file hash verification or compatibility certification.
+- **Not yet independently qualified:** clean ImDisk installation, inspector against an assembled iPod, refused unmount + Retry, full file checksum verification, other iPod/adapter models. See [compatibility matrix](COMPATIBILITY.md).
 
 Report reproducible issues via [GitHub Issues](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/issues) with Windows version, USB reader models, exact steps and **redacted** JSONL logs. Do not upload full SD-card images, private file paths or copyrighted music.

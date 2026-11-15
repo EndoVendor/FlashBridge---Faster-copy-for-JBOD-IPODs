@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.0 — First working owner-demonstrated prototype (2026-11-15)
+
+- Owner confirms real Windows EXE transfers on a two-microSD FAT32 JBOD and Rockbox recognition after returning cards to a modified iPod.
+- Classified as an experimental community-test functional prototype, AS IS, without warranty, not hardware-qualified across adapters or generations.
+- Documentation, compatibility reporting and unsigned Windows packaging updated. The physical I/O path is unchanged; Shift+Delete remains unresolved.
+
+
 ## v0.3.3-rc2 — Read-only iPod reference inspection + opt-in ImDisk installer
 
 - New per-device read-only snapshots and live assembled-iPod continuity comparison (both possible card orders). Reports are metadata and SHA-256 samples only. No formatter or firmware provisioning.

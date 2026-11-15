@@ -1,7 +1,7 @@
 [project]
 name = "flashbridge"
-version = "0.3.3rc2"
-description = "Evidence-based two-media FAT32 JBOD manager for Windows (release candidate)"
+version = "1.0.0"
+description = "Evidence-based two-media FAT32 JBOD manager for Windows (experimental functional prototype)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}

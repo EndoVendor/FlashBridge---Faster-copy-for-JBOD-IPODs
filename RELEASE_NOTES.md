@@ -1,4 +1,20 @@
-# FlashBridge v0.3.3-rc2 — PARTIALLY TESTED / ČÁSTEČNĚ TESTOVÁNO
+# FlashBridge v1.0.0 — FUNCTIONAL PROTOTYPE / FUNKČNÍ PROTOTYP
+
+**Experimental community hardware-testing prototype, unsigned, provided AS IS without warranty under MIT. NOT a stable or certified disk utility.**
+
+The maintainer confirms a successful real Windows EXE transfer to an existing two-card FAT32 JBOD, followed by removal/reinsertion of the cards and successful Rockbox recognition with contents apparently functional (15 Nov 2026). This is ONE owner-reported reference, not full-file hash verification or compatibility certification.
+
+Vlastník potvrdil skutečný přenos prostřednictvím Windows EXE na existující dvoukartové FAT32 JBOD, následné vrácení karet do iPodu a jejich úspěšné rozpoznání Rockboxem s na pohled funkčními daty (15. 11. 2026). Jde o JEDEN referenční test, nikoli kontrolu hashů všech souborů ani certifikaci kompatibility.
+
+- Compared with v0.3.3-rc2, **only version/distribution/docs metadata changed**. The physical write path and error handling have **not** been modified; no new safety or adapter coverage is implied.
+- Reference setup: modified iPod Video 5.5G, two physical microSD cards in an existing supported linear FAT32 JBOD, two USB readers, Windows x64 and Rockbox. Exact adapter model unknown. Visible Rockbox files are not independently checksum-verified.
+- Needs testing: other iPod and adapter models, card/reader combinations, safe-unmount refusal and retry, fresh ImDisk installation, inspector, full file-hash comparison and recoverability.
+- **Known unresolved risk:** permanent deletion (Shift+Delete) and free-space reclamation may misbehave; do not perform risky operations on irreplaceable media. No formatting, firmware installation, CHKDSK/repair, forced unmount or automatic retries.
+- Submit test results using [compatibility matrix](docs/COMPATIBILITY.md) and a GitHub Issue; redact diagnostic logs.
+
+---
+
+## Previous release notes (v0.3.3-rc2)
 
 **Near-final release candidate — experimental software provided "AS IS" without warranty under the MIT license.** It is not a stable, certified or universally compatible disk utility. Back up important data; do not use the only copy.
 

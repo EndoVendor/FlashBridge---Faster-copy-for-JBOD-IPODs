@@ -1,14 +1,14 @@
-# FlashBridge — v0.3.3-rc2
+# FlashBridge — v1.0.0 · Funkční prototyp
 
-> **Začni zde — v0.3.3-rc2 (částečně testovaný release candidate):** [Podrobný návod česky](docs/USER_GUIDE.cs.md) · [English guide](docs/USER_GUIDE.md) · [Bezpečnost](SECURITY.cs.md) · [Hardwarová přejímka](RELEASE_CHECKLIST.md)
+> **v1.0.0 — funkční prototyp otestovaný vlastníkem na JEDNOM upraveném iPodu.** [Český návod](docs/USER_GUIDE.cs.md) · [English guide](docs/USER_GUIDE.md) · [Matice kompatibility](docs/COMPATIBILITY.md) · [Bezpečnost](SECURITY.cs.md) · [Přejímka](RELEASE_CHECKLIST.md)
 >
-> **Windows EXE:** [Trvalá stránka GitHub prerelease → Assets](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v0.3.3-rc2) (**FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED.zip**; samostatné EXE a SHA256.txt jsou také dostupné). Rozbal ZIP a spusť **FlashBridge.exe** s právy správce; **Python ani CMD nejsou potřeba**. **ImDisk se instaluje zvlášť** tlačítkem **Nainstalovat ImDisk…**. **EXE není digitálně podepsané; jde o experimentální vydání bez záruky.**
+> **Windows EXE:** [Stáhnout prototyp v1.0.0](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v1.0.0) — **FlashBridge-v1.0.0-Windows-x64-UNSIGNED.zip**, EXE a SHA256.txt. Rozbal ZIP, spusť EXE jako správce; **ImDisk se instaluje samostatně**. Experimentální nepodepsaný software TAK, JAK JE, bez záruky.
 >
 > **Co umí:** inspekci **karty A, karty B a složeného iPodu** bez zápisu a připojení **existujícího podporovaného dvoukartového FAT32 JBOD**. **Neformátuje karty, nevytváří oddíly iPodu ani neinstaluje firmware.** Fyzický RW je experimentální — nepoužívej jedinou kopii důležitých dat.
 
 **Správce dvoukartového FAT32 JBOD pro Windows** · [English](README.md) · [Poznámky k vydání](RELEASE_NOTES.md)
 
-**Stav: TÉMĚŘ FINÁLNÍ RELEASE CANDIDATE — EXPERIMENTÁLNÍ SOFTWARE POSKYTOVANÝ „TAK, JAK JE“, BEZ ZÁRUKY.** Windows EXE bylo sestaveno a použito pro skutečné přenosy na vývojové konfiguraci; **nejde však o stabilní ani hardwarově certifikované vydání**. Inspektor, průvodce instalací ImDisku a řešení blokovaného odpojení ještě potřebují hardwarovou přejímku. FlashBridge neopravuje FAT32. **Nepoužívej jedinou kopii důležitých dat.** Fyzický zápisový engine je stejný jako v0.3.2-alpha. Viz [vyloučení záruk v licenci MIT](LICENSE) a [bezpečnostní omezení](SECURITY.cs.md).
+**STAV: FUNKČNÍ PROTOTYP v1.0.0 PRO KOMUNITNÍ TESTOVÁNÍ, NIKOLI STABILNÍ ČI CERTIFIKOVANÝ NÁSTROJ.** Vlastník potvrdil skutečný přenos prostřednictvím Windows EXE na existující dvoukartové FAT32 JBOD, následné vrácení karet do iPodu a jejich úspěšné rozpoznání Rockboxem s na pohled funkčními daty (15. 11. 2026). Jde o JEDEN referenční test, nikoli kontrolu hashů všech souborů ani certifikaci kompatibility. Fyzický zápisový engine zůstává stejný jako ve v0.3.2-alpha; průvodce instalací, inspektor, obnova z chyb i jiné adaptéry nadále potřebují testy. Nepoužívej jedinou kopii důležitých dat. Viz [bezpečnost](SECURITY.cs.md) a [licenci MIT](LICENSE).
 
 ## Co aplikace dělá
 
@@ -74,7 +74,7 @@ Před veřejným stabilním vydáním je nutno ověřit sestavení a spuštění
 
 Licence MIT ([LICENSE](LICENSE)). ImDisk se instaluje zvlášť a podléhá vlastní licenci. Viz [Bezpečnost](SECURITY.cs.md), [Architektura](docs/ARCHITECTURE.cs.md) a [Přejímací seznam](RELEASE_CHECKLIST.md).
 
-## Nedestruktivní inspektor iPodu (novinka rc2)
+## Nedestruktivní inspektor iPodu (experimentální)
 
 **FlashBridge nikdy neformátuje SD karty ani na ně neinstaluje iPod firmware.** Máme pouze jediný referenční iPod 5/5.5G a jeden adaptér. Je to příliš malý vzorek pro univerzální postup inicializace. iPod může mít samostatnou partition pro firmware a partition FAT32; geometrie sektorů se může lišit.
 

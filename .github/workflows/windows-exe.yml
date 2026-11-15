@@ -48,7 +48,7 @@ jobs:
           Get-FileHash release/FlashBridge.exe -Algorithm SHA256 | Format-List | Out-File -FilePath release/SHA256.txt -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
-          name: FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED
+          name: FlashBridge-v1.0.0-Windows-x64-UNSIGNED
           path: release/
           if-no-files-found: error
           retention-days: 30

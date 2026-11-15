@@ -53,7 +53,7 @@ This mechanism **does not** provide atomicity or journaling across FAT tables, c
 
 ## Copy semantics
 
-The legacy non-GUI library copy helper (not exposed in v0.3.3-rc2) scans only `Music` and `Audiobooks`. It plans missing target paths, skips existing paths regardless of their contents, and skips files above FAT32's maximum file size. New files are written to `*.flashbridge.partial`, optionally verified by SHA-256, and then renamed. Existing partials are resumed only after comparing their prefix with source. This does not repair files left with their *final* names by other copy tools.
+The legacy non-GUI library copy helper (not exposed in v1.0.0) scans only `Music` and `Audiobooks`. It plans missing target paths, skips existing paths regardless of their contents, and skips files above FAT32's maximum file size. New files are written to `*.flashbridge.partial`, optionally verified by SHA-256, and then renamed. Existing partials are resumed only after comparing their prefix with source. This does not repair files left with their *final* names by other copy tools.
 
 ## Diagnostic evidence
 
