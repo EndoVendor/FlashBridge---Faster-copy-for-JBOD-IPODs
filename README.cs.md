@@ -1,4 +1,4 @@
-# FlashBridge — v0.3.3-rc1
+# FlashBridge — v0.3.3-rc2
 
 **Správce dvoukartového FAT32 JBOD pro Windows** · [English](README.md) · [Poznámky k vydání](RELEASE_NOTES.md)
 
@@ -46,7 +46,7 @@ Nově FlashBridge zobrazí srozumitelné vysvětlení, zapíše událost `UNMOUN
 
 ## Nápověda a diagnostika
 
-Tlačítko **Nápověda a bezpečnost** otevře pět přehledů: Přehled, Postup, Odpojování, Bezpečnost a Diagnostika. Obsah je anglicky i česky a vysvětluje požadavky, postup, interpretaci režimů a řešení blokací.
+Tlačítko **Nápověda a bezpečnost** otevře šest přehledů: Přehled, Postup, Odpojování, Bezpečnost, Diagnostika a Inspektor iPodu. Obsah je anglicky i česky a vysvětluje požadavky, postup, interpretaci režimů a řešení blokací.
 
 Logy: `%LOCALAPPDATA%\FlashBridge\logs\` (`.log`, `.jsonl`). V GUI je tlačítko **Otevřít složku logů**. `IO_STATS` obsahuje souhrnné bajty i rozklad aktivního zápisu, skutečně uplynulého času, čekání, čtení a fyzických operací. Ve FAST režimu jsou jednotlivé úspěšné `IO_END` jen vzorkované; nesčítej je jako všechny zápisy.
 
@@ -67,3 +67,20 @@ Podporováno: jednoznačně identifikovaný dvoukartový concatenated FAT32, RO/
 Před veřejným stabilním vydáním je nutno ověřit sestavení a spuštění EXE na Windows 10/11, přítomnost ImDisk, běžné i blokované odpojení (při otevřeném Průzkumníku), RO čtení a **RW jen na postradatelných testovacích kartách** včetně ověření souborů a zotavení po výpadku.
 
 Licence MIT ([LICENSE](LICENSE)). ImDisk se instaluje zvlášť a podléhá vlastní licenci. Viz [Bezpečnost](SECURITY.cs.md), [Architektura](docs/ARCHITECTURE.cs.md) a [Přejímací seznam](RELEASE_CHECKLIST.md).
+
+## Nedestruktivní inspektor iPodu (novinka rc2)
+
+**FlashBridge nikdy neformátuje SD karty ani na ně neinstaluje iPod firmware.** Máme pouze jediný referenční iPod 5/5.5G a jeden adaptér. Je to příliš malý vzorek pro univerzální postup inicializace. iPod může mít samostatnou partition pro firmware a partition FAT32; geometrie sektorů se může lišit.
+
+1. Vyjmi první kartu, vlož ji samostatně do čtečky, vyber právě jeden fyzický disk a zvol **Uložit otisk vybrané karty (RO)**. Ulož JSON A. Totéž proveď s druhou kartou (JSON B). Neodsouhlasuj případnou nabídku Windows na inicializaci ani formátování.
+2. Vrať obě karty do původního adaptéru a iPodu. Připoj iPod přes USB v diskovém režimu, obnov seznam a identifikuj jeho fyzický disk podle kapacity a označení.
+3. Vyber iPod disk, zvol **Porovnat disk iPodu (RO)**, načti dva uložené otisky. Aplikace ověří vzorky z obou možných pořadí při lineárním spojení.
+4. Výsledek obsahuje shody a neshody malých SHA-256 vzorků a rozdíl kapacit. **Ani úplná shoda nezaručuje bootovatelnost, úplnou integritu ani univerzální podporu adaptéru.** Neshoda může znamenat jinou geometrii, změněná data či jiný způsob mapování adaptéru; v takovém případě se nic nezapisuje a pořadí se nehádá.
+
+Inspektor v protokolu také samostatně zachytí skutečně viděnou kapacitu, MBR/partition mapu, případné FAT32 struktury a vzorkované hashe samotného iPodu. Neprovádí formát, opravu, klonování, mount ani žádný zápis. Jeho report nikdy sám nepovoluje RW v běžné části aplikace. Uložené JSONy obsahují metadata a hashe, ne obsah hudby.
+
+## Volitelná instalace ImDisk
+
+Tlačítko **Nainstalovat ImDisk…** po potvrzení stáhne instalátor z `static.ltr-data.se` přes HTTPS do nové prázdné složky a zkontroluje digitální podpis vydavatele prostřednictvím Windows Authenticode. Pokud podpis nelze ověřit, instalátor se **nespustí**; uživatel může otevřít oficiální web a nainstalovat ovladač ručně. Samotnou instalaci a případné UAC musí uživatel výslovně potvrdit. ImDisk má na moderních Windows známá omezení.
+
+Oficiální vydavatel: https://www.ltr-data.se/opencode.html#ImDisk

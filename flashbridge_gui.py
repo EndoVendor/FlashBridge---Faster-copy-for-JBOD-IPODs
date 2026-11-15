@@ -5,6 +5,8 @@ Run as administrator. Device operations are deliberately explicit and fail close
 from __future__ import annotations
 
 import hashlib
+import json
+import webbrowser
 import os
 from pathlib import Path
 import queue
@@ -14,6 +16,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from flashbridge_i18n import translate
+from flashbridge_inspector import capture_snapshot, compare_live_ipod, load_snapshot
+from flashbridge_imdisk_setup import prepare_and_launch, is_installed, VENDOR_PAGE
 from flashbridge_core import (
     ProxyServer, discover_pair, discover_all_pairs, eligible, format_bytes,
     imdisk_list, imdisk_mount, imdisk_unmount, is_elevated, load_optional_manifests,
@@ -89,13 +93,16 @@ class BridgeApp:
     def _set_language(self, _value=None):
         self.language = 'cs' if self.lang_var.get() == 'Čeština' else 'en'
         self._translate_widgets()
+        if getattr(self, '_help_popup', None) and self._help_popup.winfo_exists():
+            self._help_popup.destroy()
+            self._show_help()
         if not self.mounted and not self.active_task:
             self.status.set(self.t('ready'))
         self.log.info('LANGUAGE_CHANGED', locale=self.language)
 
     def _build(self):
-        self.root.geometry('1100x720')
-        self.root.minsize(960, 620)
+        self.root.geometry('1100x810')
+        self.root.minsize(980, 710)
         outer = ttk.Frame(self.root, padding=12)
         outer.pack(fill='both', expand=True)
         top = ttk.Frame(outer)
@@ -137,6 +144,19 @@ class BridgeApp:
         ttk.Entry(mrow, textvariable=self.manifests_folder, width=25).pack(side='left')
         self._widget(ttk.Button, mrow, 'browse', command=self._choose_manifest).pack(side='left', padx=4)
 
+        inspection = self._widget(ttk.LabelFrame, outer, 'inspector_header')
+        inspection.pack(fill='x', pady=4)
+        probe_row = ttk.Frame(inspection)
+        probe_row.pack(fill='x', padx=8, pady=6)
+        self.snapshot_button = self._widget(ttk.Button, probe_row, 'snapshot_button',
+                                             command=self._capture_snapshot)
+        self.snapshot_button.pack(side='left', padx=(0, 8))
+        self.compare_button = self._widget(ttk.Button, probe_row, 'compare_button',
+                                            command=self._compare_ipod)
+        self.compare_button.pack(side='left')
+        self._widget(ttk.Label, inspection, 'inspector_help', wraplength=1010).pack(
+            anchor='w', padx=8, pady=(0, 6))
+
         evidence = self._widget(ttk.LabelFrame, outer, 'evidence_header')
         evidence.pack(fill='x', pady=4)
         self.explanation = tk.Text(evidence, height=5, wrap='word', font=('Consolas', 9),
@@ -159,6 +179,9 @@ class BridgeApp:
         self.unmount_button.pack(side='left', padx=4)
         self.inspect_button = self._widget(ttk.Button, r, 'inspect_imdisk', command=self._inspect_imdisk)
         self.inspect_button.pack(side='left', padx=4)
+        self.install_driver_button = self._widget(ttk.Button, r, 'install_imdisk',
+                                                  command=self._install_imdisk)
+        self.install_driver_button.pack(side='left', padx=4)
         modes = ttk.Frame(mnt)
         modes.pack(fill='x', padx=8, pady=(0, 4))
         self._widget(ttk.Label, modes, 'io_mode_label').pack(side='left')
@@ -252,6 +275,79 @@ class BridgeApp:
     def _choose_manifest(self):
         value = filedialog.askdirectory(title=self.t('manifest_pick'))
         if value: self.manifests_folder.set(value)
+
+    def _selected_single_inspection_disk(self):
+        if self.mounted or self.server or self.active_task or len(self.selected)!=1:
+            return None
+        return next((d for d in self.disks if d.number in self.selected and eligible(d)),None)
+
+    def _capture_snapshot(self):
+        d=self._selected_single_inspection_disk()
+        if not d:return
+        path=filedialog.asksaveasfilename(parent=self.root,defaultextension='.json',
+            initialfile=f'flashbridge-card-disk{d.number}.json',
+            filetypes=[('JSON','*.json')],title=self.t('snapshot_save'))
+        if not path:return
+        def work():
+            # Repeat enumeration at point of use: never read a different device after hotplug.
+            fresh=next((x for x in powershell_disks() if x.number==d.number),None)
+            if not fresh or fresh.size!=d.size or fresh.name!=d.name or fresh.serial!=d.serial or not eligible(fresh):
+                raise RuntimeError(self.t('disks_changed',number=d.number))
+            snapshot=capture_snapshot(fresh)
+            Path(path).write_text(json.dumps(snapshot,indent=2,ensure_ascii=False),encoding='utf-8')
+            self.log.info('INSPECTOR_SNAPSHOT',disk=d.number,size=d.size,path=str(path),
+                          anchors=len(snapshot['anchors_sha256']),fat_candidates=len(snapshot['fat32_candidates']))
+            self._post('inspector_result', self.t('snapshot_success',path=path,
+                                     count=len(snapshot['fat32_candidates'])))
+        self._task('inspecting_card',work)
+
+    def _compare_ipod(self):
+        d=self._selected_single_inspection_disk()
+        if not d:return
+        if not messagebox.askokcancel(self.t('compare_title'),
+             self.t('compare_intro',number=d.number,size=format_bytes(d.size)),parent=self.root):return
+        first=filedialog.askopenfilename(parent=self.root,title=self.t('compare_first'),
+                                         filetypes=[('JSON','*.json')])
+        if not first:return
+        second=filedialog.askopenfilename(parent=self.root,title=self.t('compare_second'),
+                                          filetypes=[('JSON','*.json')])
+        if not second:return
+        path=filedialog.asksaveasfilename(parent=self.root,defaultextension='.json',
+            initialfile='flashbridge-ipod-comparison.json',
+            filetypes=[('JSON','*.json')],title=self.t('compare_save'))
+        if not path:return
+        def work():
+            a,b=load_snapshot(first),load_snapshot(second)
+            fresh=next((x for x in powershell_disks() if x.number==d.number),None)
+            if not fresh or fresh.size!=d.size or fresh.name!=d.name or fresh.serial!=d.serial or not eligible(fresh):
+                raise RuntimeError(self.t('disks_changed',number=d.number))
+            report=compare_live_ipod(fresh,a,b)
+            Path(path).write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
+            self.log.info('INSPECTOR_COMPARE',ipod_disk=d.number,path=str(path),
+                 summary=[{k:v[k] for k in ('order','matches','mismatches','status')}
+                          for v in report['variants']],write_authorized=False)
+            best=max(report['variants'],key=lambda v:(v['matches'],-v['mismatches']))
+            self._post('inspector_result',self.t('compare_success',path=path,
+                order=best['order'],matches=best['matches'],mismatches=best['mismatches'],
+                conclusion=report['conclusion']))
+        self._task('comparing_ipod',work)
+
+    def _install_imdisk(self):
+        if self.mounted or self.server or self.active_task:return
+        if is_installed():
+            messagebox.showinfo('ImDisk',self.t('imdisk_already'),parent=self.root)
+            return
+        if not messagebox.askyesno(self.t('install_title'),self.t('install_confirm'),
+                                   parent=self.root):return
+        def work():
+            try:
+                result=prepare_and_launch()
+                self.log.info('IMDISK_INSTALLER',status=result['status'])
+                self._post('inspector_result',self.t('install_started'))
+            except Exception as exc:
+                self.log.warning('IMDISK_INSTALLER_BLOCKED',reason=str(exc))
+                self._post('installer_blocked',str(exc))
+        self._task('installing_imdisk',work)
 
     def _inspect_imdisk(self):
         def work():
@@ -393,7 +489,7 @@ class BridgeApp:
         notebook.pack(fill='both', expand=True, padx=12, pady=12)
         for key, topic in (('help_overview', 'overview'), ('help_workflow', 'workflow'),
                            ('help_unmount', 'unmount'), ('help_safety', 'safety'),
-                           ('help_diagnostics', 'diagnostics')):
+                           ('help_diagnostics', 'diagnostics'), ('help_inspector','inspector')):
             frame = ttk.Frame(notebook)
             notebook.add(frame, text=self.t(key))
             viewer = tk.Text(frame, wrap='word', font=('Segoe UI', 10), padx=16, pady=12,
@@ -423,6 +519,9 @@ class BridgeApp:
         state(self.verified_radio, idle)
         state(self.unmount_button, not busy and self.mounted)
         state(self.inspect_button, not busy)
+        state(self.install_driver_button, idle)
+        state(self.snapshot_button,idle and len(self.selected)==1)
+        state(self.compare_button,idle and len(self.selected)==1)
 
     def _fault(self):
         return self.server is None or self.server.failed or not self.server.ready
@@ -515,6 +614,13 @@ class BridgeApp:
             messagebox.showerror(self.t('task_error_title'), a[1])
         elif key == 'task_finished':
             self.active_task = None
+        elif key == 'inspector_result':
+            self.status.set(self.t('ready'))
+            messagebox.showinfo(self.t('inspector_header'),a[1],parent=self.root)
+        elif key == 'installer_blocked':
+            if messagebox.askyesno(self.t('install_title'),
+                self.t('install_blocked',detail=a[1]),parent=self.root):
+                webbrowser.open(VENDOR_PAGE)
         elif key == 'imdisk':
             messagebox.showinfo('ImDisk', a[1] or self.t('imdisk_none'))
         self._buttons()

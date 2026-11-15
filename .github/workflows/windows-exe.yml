@@ -26,7 +26,7 @@ jobs:
       - name: Compile + synthetic test suite
         shell: pwsh
         run: |
-          python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_gui.pyw flashbridge_i18n.py
+          python -m py_compile flashbridge_core.py flashbridge_gui.py flashbridge_gui.pyw flashbridge_i18n.py flashbridge_inspector.py flashbridge_imdisk_setup.py
           python -m unittest discover -s tests -v
       - name: Build FlashBridge.exe
         shell: pwsh
@@ -48,7 +48,7 @@ jobs:
           Get-FileHash release/FlashBridge.exe -Algorithm SHA256 | Format-List | Out-File -FilePath release/SHA256.txt -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
-          name: FlashBridge-v0.3.3-rc1-Windows-x64-UNSIGNED
+          name: FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED
           path: release/
           if-no-files-found: error
           retention-days: 30

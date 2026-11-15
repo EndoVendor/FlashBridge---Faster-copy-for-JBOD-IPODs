@@ -1,4 +1,4 @@
-# FlashBridge v0.3.3-rc1 — Release checklist / Přejímka
+# FlashBridge v0.3.3-rc2 — Release checklist / Přejímka
 
 ## Completed in source / Hotovo ve zdrojích
 - [x] EN/CS help toolbox with first-use guide, safety, unmount troubleshooting and logs
@@ -22,4 +22,10 @@
 - [ ] Virus-scan/SmartScreen and unsigned-executable distribution instructions checked
 - [ ] No personal paths, private logs or protected card images bundled
 
-**Do not call v0.3.3-rc1 stable or production-safe before hardware acceptance.**
+**Do not call v0.3.3-rc2 stable or production-safe before hardware acceptance.**
+
+- [ ] On actual Windows, capture card A + card B snapshots without any write; review physical disk selection and independently captured iPod partition/FAT32 metadata
+- [ ] Compare assembled iPod USB disk against both snapshots; inspect both order outcomes and report
+- [ ] Verify non-linear / mismatched / changed geometry stays inconclusive and no RW is granted
+- [ ] Test ImDisk installer assistant with official publisher certificate and system UAC, including failure paths
+- [ ] Verify installer cannot run while virtual drive is mounted

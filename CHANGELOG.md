@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.3-rc2 — Read-only iPod reference inspection + opt-in ImDisk installer
+
+- New per-device read-only snapshots and live assembled-iPod continuity comparison (both possible card orders). Reports are metadata and SHA-256 samples only. No formatter or firmware provisioning.
+- Explicit ImDisk installer assistant with vendor-host and Authenticode validation, official-page fallback.
+- Existing engine, RW gate and safe unmount semantics unchanged.
+
+
 ## v0.3.3-rc1 — Usability and Windows packaging (partially tested)
 
 - Bilingual Help/Safety toolbox and focused main GUI; optional Music/Audiobooks copy wizard removed from the GUI.

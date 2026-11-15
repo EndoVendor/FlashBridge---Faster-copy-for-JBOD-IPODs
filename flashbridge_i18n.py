@@ -9,7 +9,7 @@ EN = {
     'help_close': 'Close',
     'help_overview': 'Overview', 'help_workflow': 'How to use',
     'help_unmount': 'Safe unmount', 'help_safety': 'Safety',
-    'help_diagnostics': 'Diagnostics',
+    'help_diagnostics': 'Diagnostics', 'help_inspector':'iPod inspector',
     'file_copy_note': 'File transfers: use Windows File Explorer or your preferred file manager. FlashBridge provides the mounted volume; it does not copy or delete files.',
     'unmount_busy_title': 'Windows is still using the virtual volume',
     'unmount_busy_help': ('Safe unmount was refused by ImDisk. Close all Explorer windows and Total Commander instances, '
@@ -20,7 +20,7 @@ EN = {
     'unmount_diagnostic': 'ImDisk output: {detail}',
     'help_text_overview': ('FlashBridge {version}\n\nPurpose\n'
                            'Temporarily exposes a pre-existing two-card, concatenated FAT32 JBOD as one drive letter in Windows. '
-                           'It was designed for a flash-modded iPod; it does NOT combine data anew, format cards or install the ImDisk driver.\n\n'
+                           'It was designed for a flash-modded iPod; it does NOT combine data anew or format cards. ImDisk installation is opt-in.\n\n'
                            'Requires Windows 10/11, administrator privileges, two connected card readers and a separate ImDisk driver installation. '
                            'It does not support exFAT, RAID0 striping or arbitrary pairs of disks.\n\n'
                            'RO means read-only. RW means experimental direct writes to the real cards.'),
@@ -126,6 +126,28 @@ EN = {
     'close_block_title': 'Unmount the virtual disk first',
     'close_block': 'A proxy server or ImDisk device may still hold physical disks open. Unmount safely before exit.',
     'error_shutdown': 'A worker is still active. Do not close the application.',
+    'inspector_header':'Read-only iPod storage inspector',
+    'inspector_help':('Snapshot individual cards before inserting them into the iPod. Then connect the assembled iPod via USB, select its physical disk, and compare it against the two saved JSON files. No formatting, firmware installation or write access. Comparison never enables RW automatically.'),
+    'snapshot_button':'Save selected card snapshot (RO)',
+    'compare_button':'Compare selected iPod disk (RO)',
+    'snapshot_save':'Save read-only snapshot',
+    'snapshot_success':'Read-only snapshot saved:\n{path}\nDetected FAT32 candidates: {count}. No changes made.',
+    'compare_title':'Compare live iPod disk to card snapshots',
+    'compare_intro':'This will READ ONLY physical disk {number} ({size}). Ensure it is the iPod presented via USB and that you captured both loose cards first. Both orders will be tested; no writes, formatting, firmware actions or automatic RW authorization.',
+    'compare_first':'Select first loose-card snapshot JSON',
+    'compare_second':'Select second loose-card snapshot JSON',
+    'compare_save':'Save iPod comparison evidence report',
+    'compare_success':'Evidence saved to {path}\nBest candidate: {order}; matching anchors: {matches}; mismatching anchors: {mismatches}.\nConclusion: {conclusion}. This does not prove bootability or integrity.',
+    'inspecting_card':'Read-only card inspection',
+    'comparing_ipod':'Read-only iPod comparison',
+    'install_imdisk':'Install ImDisk…',
+    'install_title':'Install official ImDisk driver',
+    'imdisk_already':'ImDisk executable was found. No installation requested.',
+    'install_confirm':('Download the official ImDisk installer from LTR Data over HTTPS into a new empty directory? Windows must validate the vendor Authenticode signature before FlashBridge can launch it. You will still approve installation in the installer. Nothing is installed silently.'),
+    'install_started':'Official ImDisk installer launched. Complete its dialogs and refresh devices. No physical card changes were made.',
+    'installing_imdisk':'Downloading and verifying official ImDisk installer',
+    'install_blocked':'FlashBridge did not execute the installer: {detail}\n\nOpen the publisher website for manual installation instead?',
+    'help_text_inspector':'The iPod 5/5.5G may have firmware and data partitions and sector geometry unlike a regular FAT32 card. Capture card A, card B and compare both against the assembled iPod presented through USB. Only sampled SHA-256 anchor blocks and partition/FAT32 metadata are recorded, never raw contents. A linear match is evidence only, not validation of bootability or proof of an adapter type. Unknown layouts remain unsupported; never format based on this report. ImDisk installer is fetched only from the official publisher host and executed only if Authenticode verification succeeds.\n\nNo partitioning or firmware provisioning is implemented.',
 }
 
 CS = {
@@ -135,7 +157,7 @@ CS = {
     'help_close': 'Zavřít',
     'help_overview': 'Přehled', 'help_workflow': 'Postup',
     'help_unmount': 'Odpojování', 'help_safety': 'Bezpečnost',
-    'help_diagnostics': 'Diagnostika',
+    'help_diagnostics': 'Diagnostika', 'help_inspector':'Inspektor iPodu',
     'file_copy_note': 'Přenos souborů: používej Průzkumníka nebo Total Commander. FlashBridge pouze připojuje virtuální disk; sám soubory nekopíruje ani nemaže.',
     'unmount_busy_title': 'Windows stále používají virtuální svazek',
     'unmount_busy_help': ('ImDisk odmítl bezpečné odpojení. Zavři všechna okna Průzkumníka a všechny instance Total Commanderu, '
@@ -147,7 +169,7 @@ CS = {
     'help_text_overview': ('FlashBridge {version}\n\nÚčel\n'
                            'Dočasně zpřístupní již existující FAT32 JBOD rozdělený mezi dvě karty jako jediný disk Windows. '
                            'Vznikl pro iPod upravený na flash paměť. Karty nově nespojuje, neformátuje a neinstaluje ovladač ImDisk.\n\n'
-                           'Vyžaduje Windows 10/11, práva správce, dvě čtečky a samostatnou instalaci ImDisk. '
+                           'Vyžaduje Windows 10/11, práva správce, dvě čtečky a ImDisk; instalaci ovladače lze spustit volitelně v aplikaci. '
                            'Nepodporuje exFAT, RAID0 ani libovolné dvojice disků.\n\n'
                            'RO = pouze čtení; RW = experimentální přímý zápis na fyzická média.'),
     'help_text_workflow': ('1. Obě původní karty JBOD vlož do samostatných čteček.\n'
@@ -251,6 +273,28 @@ CS = {
     'close_block_title': 'Nejdřív odpoj virtuální disk',
     'close_block': 'Server nebo ImDisk může držet fyzické disky. Před ukončením bezpečně odpoj.',
     'error_shutdown': 'Pracovní úloha stále běží. Aplikaci nyní nezavírej.',
+    'inspector_header':'Inspektor úložiště iPodu — pouze čtení',
+    'inspector_help':('Nejdříve ulož samostatné otisky obou karet. Potom je vrať do iPodu, připoj jej přes USB, vyber jeho fyzický disk a porovnej jej se dvěma uloženými JSONy. Bez formátování, instalace firmwaru a zápisu. Porovnání samo nikdy nepovolí RW.'),
+    'snapshot_button':'Uložit otisk vybrané karty (RO)',
+    'compare_button':'Porovnat disk iPodu (RO)',
+    'snapshot_save':'Uložit nedestruktivní otisk karty',
+    'snapshot_success':'Otisk uložen:\n{path}\nRozpoznané FAT32 kandidáty: {count}. Žádná změna disku.',
+    'compare_title':'Porovnání iPodu s otisky dvou karet',
+    'compare_intro':'Bude se POUZE ČÍST fyzický disk {number} ({size}). Ujisti se, že jde o celý iPod přes USB a že máš již otisky obou samostatných karet. Vyzkouší se obě pořadí. Bez zápisu, formátování, úprav firmwaru nebo automatického povolení RW.',
+    'compare_first':'Vyber první JSON otisk samostatné karty',
+    'compare_second':'Vyber druhý JSON otisk samostatné karty',
+    'compare_save':'Uložit důkazní protokol iPodu',
+    'compare_success':'Protokol uložen do {path}\nNejlepší kandidát: {order}; shodných vzorků: {matches}; neshodných vzorků: {mismatches}.\nZávěr: {conclusion}. Neověřuje boot ani úplnou integritu dat.',
+    'inspecting_card':'Nedestruktivní inspekce karty',
+    'comparing_ipod':'Nedestruktivní porovnání iPodu',
+    'install_imdisk':'Nainstalovat ImDisk…',
+    'install_title':'Instalovat oficiální ovladač ImDisk',
+    'imdisk_already':'Program imdisk.exe už je dostupný. Instalace nebyla spuštěna.',
+    'install_confirm':('Stáhnout oficiální instalátor ImDisk od LTR Data přes HTTPS do nové prázdné složky? FlashBridge jej spustí pouze po úspěšném ověření digitálního podpisu vydavatele ve Windows. Následně instalaci sám schválíš v instalačním dialogu. Nic se neinstaluje skrytě.'),
+    'install_started':'Oficiální instalátor ImDisk byl spuštěn. Dokonči jeho dialogy a obnov seznam. Fyzické karty se neměnily.',
+    'installing_imdisk':'Stahování a ověřování ImDisk instalátoru',
+    'install_blocked':'FlashBridge instalátor nespustil: {detail}\n\nOtevřít stránku vydavatele pro ruční instalaci?',
+    'help_text_inspector':'iPod 5/5.5G může mít firmware partition i FAT32 datovou partition a odlišnou geometrii sektorů. Ulož otisk karty A, karty B a porovnej je s celým sestaveným iPodem připojeným přes USB. Zapisují se jen SHA-256 vzorky malých bloků a metadata MBR/FAT32, ne obsah souborů. Lineární shoda je jen indikace, ne důkaz bootovatelnosti ani konkrétního typu adaptéru. Neznámé geometrie zůstávají nepodporované; nikdy je neformátuj podle tohoto protokolu. Instalátor ImDisk se stahuje jen z webu oficiálního vydavatele a automaticky se spustí pouze při úspěšném ověření Authenticode.\n\nAplikace neprovádí partitioning ani přípravu firmwaru.',
 }
 
 # Prevent partially translated UI: every English key must be represented in Czech.
