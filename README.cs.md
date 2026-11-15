@@ -2,7 +2,7 @@
 
 > **Začni zde — v0.3.3-rc2 (částečně testovaný release candidate):** [Podrobný návod česky](docs/USER_GUIDE.cs.md) · [English guide](docs/USER_GUIDE.md) · [Bezpečnost](SECURITY.cs.md) · [Hardwarová přejímka](RELEASE_CHECKLIST.md)
 >
-> **Windows EXE:** [Stáhni úspěšné sestavení → Artifacts](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/actions/runs/43717489315) (artefakt **FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED**). Rozbal ZIP a spusť **FlashBridge.exe** s právy správce; **Python ani CMD nejsou potřeba**. Ovladač **ImDisk se instaluje zvlášť**, případně tlačítkem **Nainstalovat ImDisk…**. Nejde o podepsaný stabilní GitHub Release; artefakty Actions časem expirují.
+> **Windows EXE:** [Trvalá stránka GitHub prerelease → Assets](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/releases/tag/v0.3.3-rc2) (**FlashBridge-v0.3.3-rc2-Windows-x64-UNSIGNED.zip**; samostatné EXE a SHA256.txt jsou také dostupné). Rozbal ZIP a spusť **FlashBridge.exe** s právy správce; **Python ani CMD nejsou potřeba**. **ImDisk se instaluje zvlášť** tlačítkem **Nainstalovat ImDisk…**. **EXE není digitálně podepsané; jde o experimentální vydání bez záruky.**
 >
 > **Co umí:** inspekci **karty A, karty B a složeného iPodu** bez zápisu a připojení **existujícího podporovaného dvoukartového FAT32 JBOD**. **Neformátuje karty, nevytváří oddíly iPodu ani neinstaluje firmware.** Fyzický RW je experimentální — nepoužívej jedinou kopii důležitých dat.
 

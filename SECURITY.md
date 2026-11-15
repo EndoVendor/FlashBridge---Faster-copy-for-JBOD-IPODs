@@ -2,7 +2,7 @@
 
 [Česky](SECURITY.cs.md)
 
-**Alpha software with raw-disk write access.** A software bug, driver issue, disconnect, or power failure can irreversibly corrupt data. RO detection does not establish the health of every file, cluster chain, or FAT entry. Read this before enabling experimental RW.
+**Near-final but experimental release candidate, provided AS IS without warranty, with raw-disk write access.** A software bug, driver issue, disconnect, or power failure can irreversibly corrupt data. RO detection does not establish the health of every file, cluster chain, or FAT entry. Read this before enabling experimental RW.
 
 The application has no online telemetry, no account access and no remote listener. However, its ImDisk localhost proxy protocol is **unauthenticated**, and an untrusted process on the same machine could potentially connect to the short-lived port. Run only on a trusted PC. Elevation to administrator is required to open physical devices.
 
