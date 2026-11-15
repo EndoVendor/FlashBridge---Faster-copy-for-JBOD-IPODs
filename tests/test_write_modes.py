@@ -84,10 +84,14 @@ class TestPolicies(unittest.TestCase):
         self.assertEqual(observed['readback'],0)
         self.assertEqual(srv.bytes_written,4096)
         self.assertEqual(srv.verified_bytes,0)
+        self.assertEqual(srv._physical_write_calls,1)
+        self.assertEqual(srv._physical_write_bytes,4096)
         done = next(e for e in events if e['event']=='IO_END')
         self.assertFalse(done['readback_performed'])
         self.assertIsNone(done['hash_sha256'])
         self.assertEqual(done['readback_ms'],0)
+        self.assertEqual(done['physical_write_calls'], 1)
+        self.assertEqual(done['rmw_read_calls'], 0)
         self.assertEqual(next(e for e in events if e['event']=='WRITE_POLICY')['mode'],'fast')
 
     def test_verified_readback_sha_is_retained(self):

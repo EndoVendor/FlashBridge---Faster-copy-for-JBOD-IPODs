@@ -65,6 +65,18 @@ def analyze(path):
             'flush': float(aggregate.get('flush_seconds',0)),
             'readback': float(aggregate.get('readback_seconds',0)),
         }
+        io_count_keys = ('physical_write_calls', 'physical_write_bytes',
+                         'rmw_read_calls', 'rmw_read_bytes')
+        if any(key in aggregate for key in io_count_keys):
+            result['aggregate_physical_io'] = {
+                key: int(aggregate.get(key, 0)) for key in io_count_keys
+            }
+            requests = result['aggregate_confirmed_requests']
+            if requests:
+                result['aggregate_physical_io']['physical_write_calls_per_request'] = (
+                    result['aggregate_physical_io']['physical_write_calls']/requests)
+                result['aggregate_physical_io']['rmw_reads_per_request'] = (
+                    result['aggregate_physical_io']['rmw_read_calls']/requests)
         result['aggregate_note'] = ('Cumulative totals at the most recent IO_STATS snapshot; '
                                     'the final few requests may follow it.')
     if sampled:

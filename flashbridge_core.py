@@ -26,7 +26,7 @@ import threading
 import time
 import uuid
 
-VERSION = '0.3.0-alpha'
+VERSION = '0.3.1-alpha'
 WRITE_MODE_FAST = 'fast'
 WRITE_MODE_VERIFIED = 'verified'
 WRITE_MODES = frozenset((WRITE_MODE_FAST, WRITE_MODE_VERIFIED))
@@ -511,49 +511,71 @@ class JoinedDisk:
             raise ValueError('Read outside FAT32 volume')
         return self.read_raw(self.plan.fat.offset + offset, length, phase=phase)
 
-    def _write_aligned_one(self, dev, offset, content):
-        """Preserve only misaligned 4KiB edge blocks; stream aligned interior.
+    def _write_aligned_one(self, dev, offset, content, metrics=None):
+        """Fuse a misaligned request into ONE 4KiB-aligned physical write.
 
-        A volume whose byte offset is 2KiB modulo 4KiB makes almost all
-        1MiB proxy chunks misaligned. Reading and rewriting the *entire*
-        aligned megabyte was unnecessary and slow. At most two 4KiB edge
-        blocks need pre-reading; the interior can be written directly.
+        Never overwrite neighboring bytes with zeros. Pre-read each *partial*
+        edge block (once if both edges share one block), overlay the full
+        incoming payload, and issue exactly one aligned physical WRITE.
+        No deferred writes, no shared dirty cache, and no weakened flush.
+
+        This costs up to 8KiB of RMW reads and up to 8KiB of write
+        amplification, but removes the old three-write sequence that was
+        particularly costly on high-latency USB card readers. The caller
+        continues to handle the JBOD boundary before reaching this method.
         """
         if not content:
             return
+        # Bound temporary buffers even for non-proxy callers.
+        if len(content) > IO_CHUNK:
+            for i in range(0, len(content), IO_CHUNK):
+                self._write_aligned_one(dev, offset + i, content[i:i+IO_CHUNK], metrics)
+            return
         end = offset + len(content)
-        if offset < 0 or end > dev.size or ((end + ALIGN - 1)//ALIGN)*ALIGN > dev.size:
+        aligned_start = (offset // ALIGN) * ALIGN
+        aligned_end = ((end + ALIGN - 1) // ALIGN) * ALIGN
+        if offset < 0 or end > dev.size or aligned_end > dev.size:
             raise ValueError('Physical write would exceed medium bounds')
-        cursor = 0
-        misaligned = offset % ALIGN
-        if misaligned:
-            edge_start = offset - misaligned
-            n = min(ALIGN - misaligned, len(content))
-            edge = bytearray(self._device_read(dev, edge_start, ALIGN, 'RMW_READ'))
-            edge[misaligned:misaligned+n] = content[:n]
-            self._device_write(dev, edge_start, bytes(edge))
-            cursor = n
-            offset += n
-        full = ((len(content) - cursor)//ALIGN)*ALIGN
-        if full:
-            self._device_write(dev, offset, content[cursor:cursor+full])
-            cursor += full
-            offset += full
-        if cursor < len(content):
-            edge = bytearray(self._device_read(dev, offset, ALIGN, 'RMW_READ'))
-            n = len(content) - cursor
-            edge[:n] = content[cursor:]
-            self._device_write(dev, offset, bytes(edge))
+
+        if metrics is None:
+            metrics = {}
+        if aligned_start == offset and aligned_end == end:
+            # Preserve the zero-copy fast path for already aligned payloads.
+            self._device_write(dev, offset, content)
+            metrics['physical_write_calls'] = metrics.get('physical_write_calls', 0) + 1
+            metrics['physical_write_bytes'] = metrics.get('physical_write_bytes', 0) + len(content)
+            return
+
+        merged = bytearray(aligned_end - aligned_start)
+        if offset != aligned_start:
+            edge = self._device_read(dev, aligned_start, ALIGN, 'RMW_READ')
+            merged[:ALIGN] = edge
+            metrics['rmw_read_calls'] = metrics.get('rmw_read_calls', 0) + 1
+            metrics['rmw_read_bytes'] = metrics.get('rmw_read_bytes', 0) + ALIGN
+        if end != aligned_end:
+            tail_at = aligned_end - ALIGN
+            if tail_at != aligned_start or offset == aligned_start:
+                edge = self._device_read(dev, tail_at, ALIGN, 'RMW_READ')
+                merged[tail_at-aligned_start:tail_at-aligned_start+ALIGN] = edge
+                metrics['rmw_read_calls'] = metrics.get('rmw_read_calls', 0) + 1
+                metrics['rmw_read_bytes'] = metrics.get('rmw_read_bytes', 0) + ALIGN
+        merged[offset-aligned_start:end-aligned_start] = content
+        self._device_write(dev, aligned_start, merged)
+        metrics['physical_write_calls'] = metrics.get('physical_write_calls', 0) + 1
+        metrics['physical_write_bytes'] = metrics.get('physical_write_bytes', 0) + len(merged)
 
     def write_volume(self, offset, payload):
         if not self.writable:
             raise PermissionError('RO JBOD')
         if offset < 0 or offset % 512 or len(payload) % 512 or len(payload) > self.plan.volume_bytes - offset:
             raise ValueError(f'Invalid write: logical_offset={offset} len={len(payload)}')
+        metrics = {'physical_write_calls': 0, 'physical_write_bytes': 0,
+                   'rmw_read_calls': 0, 'rmw_read_bytes': 0}
         with self.lock:
             for dev, pos, n in self._slices(self.plan.fat.offset + offset, len(payload)):
-                self._write_aligned_one(dev, pos, payload[:n])
+                self._write_aligned_one(dev, pos, payload[:n], metrics)
                 payload = payload[n:]
+        return metrics
 
     def sync(self):
         """Flush both media (used for a full-volume maintenance barrier)."""
@@ -622,6 +644,10 @@ class ProxyServer(threading.Thread):
         self._write_physical_seconds = 0.0
         self._write_flush_seconds = 0.0
         self._write_readback_seconds = 0.0
+        self._physical_write_calls = 0
+        self._physical_write_bytes = 0
+        self._rmw_read_calls = 0
+        self._rmw_read_bytes = 0
         self.last_speed = 0
         self.last_error = None
         self.client_count = 0
@@ -786,6 +812,8 @@ class ProxyServer(threading.Thread):
                 flush_seconds = 0.0
                 readback_seconds = 0.0
                 flushed_media = ()
+                io_counts = {'physical_write_calls':0, 'physical_write_bytes':0,
+                             'rmw_read_calls':0, 'rmw_read_bytes':0}
                 while remaining:
                     take = min(remaining, IO_CHUNK)
                     phase_start = time.monotonic()
@@ -798,7 +826,9 @@ class ProxyServer(threading.Thread):
                         try:
                             phase_start = time.monotonic()
                             try:
-                                self.dev.write_volume(pos, chunk)
+                                chunk_counts = self.dev.write_volume(pos, chunk)
+                                for metric, value in (chunk_counts or {}).items():
+                                    io_counts[metric] = io_counts.get(metric, 0) + value
                             finally:
                                 physical_write_seconds += time.monotonic() - phase_start
                         except Exception as exc:
@@ -886,6 +916,10 @@ class ProxyServer(threading.Thread):
                 if need_readback:
                     self.verified_bytes += nbytes
                 self.write_requests += 1
+                self._physical_write_calls += io_counts['physical_write_calls']
+                self._physical_write_bytes += io_counts['physical_write_bytes']
+                self._rmw_read_calls += io_counts['rmw_read_calls']
+                self._rmw_read_bytes += io_counts['rmw_read_bytes']
                 elapsed = time.monotonic()-t0
                 self._write_total_seconds += elapsed
                 self._write_physical_seconds += physical_write_seconds
@@ -906,6 +940,10 @@ class ProxyServer(threading.Thread):
                                   flush_ms=round(flush_seconds*1000,1),
                                   readback_ms=round(readback_seconds*1000,1),
                                   flushed_media=flushed_media,
+                                  physical_write_calls=io_counts['physical_write_calls'],
+                                  physical_write_bytes=io_counts['physical_write_bytes'],
+                                  rmw_read_calls=io_counts['rmw_read_calls'],
+                                  rmw_read_bytes=io_counts['rmw_read_bytes'],
                                   total_bytes_written=self.bytes_written,
                                   total_verified_bytes=self.verified_bytes,
                                   total_write_requests=self.write_requests,
@@ -919,7 +957,11 @@ class ProxyServer(threading.Thread):
                                                                max(self._write_total_seconds, 1e-9),2),
                                   physical_write_seconds=round(self._write_physical_seconds,3),
                                   flush_seconds=round(self._write_flush_seconds,3),
-                                  readback_seconds=round(self._write_readback_seconds,3))
+                                  readback_seconds=round(self._write_readback_seconds,3),
+                                  physical_write_calls=self._physical_write_calls,
+                                  physical_write_bytes=self._physical_write_bytes,
+                                  rmw_read_calls=self._rmw_read_calls,
+                                  rmw_read_bytes=self._rmw_read_bytes)
             elif code == 5: # CLOSE
                 self.log.info('PROXY_CLOSE', req_id=ident)
                 return

@@ -3,7 +3,7 @@
 **Evidence-based two-media FAT32 JBOD detection, mounting and copy monitoring for Windows.**  
 **English (primary)** | [Čeština](README.cs.md)
 
-> **Status: PARTIALLY TESTED · v0.3.0-alpha · experimental source preview.** Read-only discovery has been tested on real two-card media in the development scenario; the new public release is tested on synthetic media and has **not** undergone an independent Windows/ImDisk/USB hardware qualification. Raw write access can corrupt a filesystem. Do not treat a successful boot-sector check as a health certification.
+> **Status: PARTIALLY TESTED · v0.3.1-alpha · experimental source preview.** Read-only discovery has been tested on real two-card media in the development scenario; the new public release is tested on synthetic media and has **not** undergone an independent Windows/ImDisk/USB hardware qualification. Raw write access can corrupt a filesystem. Do not treat a successful boot-sector check as a health certification.
 
 FlashBridge provides a Tk desktop GUI for joining two physical flash media into a **concatenated** virtual disk without writing an image file. It detects media order from on-media evidence rather than card brand, capacity or Windows disk number. It then exposes the existing FAT32 filesystem through the separate [ImDisk Virtual Disk Driver](https://www.ltr-data.se/opencode.html/#ImDisk) using a localhost TCP proxy.
 
@@ -36,7 +36,7 @@ mode for irreplaceable data or depend on deletion/space reclamation.** If this
 symptom occurs, stop writes, unmount normally, save diagnostic logs and inspect
 filesystem consistency with suitable read-only tooling before any repair.
 
-## Throughput: FAST versus VERIFIED (v0.3.0-alpha)
+## Throughput: FAST versus VERIFIED (v0.3.1-alpha)
 
 Choose the policy **before** mounting RW; it cannot change while mounted.
 
@@ -59,9 +59,16 @@ likely affected by Windows caching. Speeds vary with card, reader, FAT32
 metadata access and workload. Two independent readers **do not** make a
 sequential JBOD into parallel striped storage.
 
-Previous v0.2.1 improvements remain: only misaligned 4KiB edge blocks are
-pre-read; the aligned interior is written directly. Flushes touch only media
-covered by each request, or both when crossing the physical-media boundary.
+New in v0.3.1: for a 1MiB write shifted by 2KiB relative to 4KiB physical
+alignment, FlashBridge pre-reads only the two partial 4KiB edge blocks and
+combines the full payload into **one aligned device WRITE**, replacing the old
+three WRITE calls. The two edge pre-reads remain necessary under the existing
+conservative alignment policy. This can reduce per-call USB overhead; **real
+throughput improvement is not yet measured**. This is still synchronous, not
+write-behind, and write acknowledgements still require a successful flush.
+Flushes touch only media covered by each request, or both when crossing the
+physical-media boundary. Every accepted request also records the cumulative
+number of raw physical READ/WRITE calls and bytes for tuning.
 
 FAST reduces normal per-request JSONL logging (first few writes, small metadata
 writes, then samples), with periodic `IO_STATS` containing **all confirmed byte
@@ -110,7 +117,7 @@ CI runs these tests on Windows and Linux using synthetic sparse-file media. It d
 
 ## Release and licensing
 
-**Release classification: Partially tested.** 33 synthetic tests passed locally; read-only two-card discovery was exercised in a development scenario. The public codebase has not passed independent Windows/ImDisk/USB integration testing, and physical RW operation remains experimental. No general performance or data-safety guarantees are made.
+**Release classification: Partially tested.** 40 synthetic tests passed locally; read-only two-card discovery was exercised in a development scenario. The public codebase has not passed independent Windows/ImDisk/USB integration testing, and physical RW operation remains experimental. No general performance or data-safety guarantees are made.
 
 
 Source code is available under the [MIT License](LICENSE). ImDisk and Windows are external prerequisites with their own terms. This release is a **GitHub-ready source tree**, not a signed `.exe` or hardware-certified production release. Feedback and test reports are welcome; do not benchmark against real data without understanding the raw-write risk.

@@ -3,7 +3,7 @@
 **Automatická identifikace dvoukartového FAT32 JBOD, připojování a monitoring ve Windows.**  
 [English — hlavní dokumentace](README.md) | **Čeština**
 
-> **Stav: PARTIALLY TESTED (ČÁSTEČNĚ TESTOVÁNO) · v0.3.0-alpha · experimentální zdrojová verze.** Detekce pouze pro čtení byla v původním vývojovém scénáři použita se skutečnými kartami. Tato veřejná verze prošla simulovanými testy, **nikoliv nezávislou certifikací kombinace Windows/ImDisk/USB**. Přímý fyzický zápis může poškodit souborový systém. Kontrola boot sektoru není zárukou integrity souborů.
+> **Stav: PARTIALLY TESTED (ČÁSTEČNĚ TESTOVÁNO) · v0.3.1-alpha · experimentální zdrojová verze.** Detekce pouze pro čtení byla v původním vývojovém scénáři použita se skutečnými kartami. Tato veřejná verze prošla simulovanými testy, **nikoliv nezávislou certifikací kombinace Windows/ImDisk/USB**. Přímý fyzický zápis může poškodit souborový systém. Kontrola boot sektoru není zárukou integrity souborů.
 
 FlashBridge je desktopová aplikace s GUI Tkinter. Z dvojice flash médií skládá **sekvenční (konkatenovaný)** virtuální disk bez vytváření jeho obrazu. Pořadí určuje podle obsahu médií, nikoliv značky, kapacity nebo čísla `PhysicalDrive`. Existující FAT32 pak připojuje přes externí [ovladač ImDisk](https://www.ltr-data.se/opencode.html/#ImDisk) a lokální TCP proxy.
 
@@ -35,7 +35,7 @@ kontrolu FAT. **Nepoužívej RW na jedinou kopii důležitých dat a nespoléhej
 správné uvolnění místa mazáním.** Při výskytu ukonči zápisy a bezpečně odpoj
 svazek; opravy bez diagnózy nespouštěj.
 
-## Zrychlení zápisu v0.3.0-alpha: FAST a VERIFIED
+## Zrychlení zápisu v0.3.1-alpha: FAST a VERIFIED
 
 **Před připojením RW** vyber způsob zápisu; za provozu přepnutí není možné.
 
@@ -117,3 +117,14 @@ Režim FAST vzorkuje běžné `IO_END`; celkový počet bajtů a fáze obsahuje
 `IO_STATS`. Počet vzorkovaných zápisů není celkový počet zápisů. Ve FAST
 je `readback_ms` nulový; VERIFIED měří plné zpětné čtení. Ani jeden režim
 nepotvrzuje zápisy před dokončením požadovaného flush.
+
+
+### Optimalizace v0.3.1-alpha
+
+U běžného 1MiB zápisu posunutého o 2KiB vůči fyzickému 4KiB zarovnání
+nově FlashBridge po předčtení dvou okrajových 4KiB bloků provede **jediný
+zarovnaný fyzický zápis**, místo tří. Zachovává sousední data, synchronní
+flush před potvrzením, kontroly pořadí karet i zastavení po chybě. Přibyly
+úplné souhrnné počty fyzických I/O volání v logu `IO_STATS`. Zrychlení na
+skutečné čtečce zatím nebylo změřeno. Potíže `Shift+Delete` a WinError 55
+zůstávají nevyřešené. Neprovádějte upgrade během aktivního připojení RW.

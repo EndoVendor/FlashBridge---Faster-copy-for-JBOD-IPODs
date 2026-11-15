@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.1-alpha — Fused aligned writes, partially tested
+- Replaced the old three-write 4KiB RMW path for misaligned 1MiB requests
+  with a **single merged 4KiB-aligned physical write**, preserving bytes in
+  both boundary blocks by pre-reading at most two 4KiB edges.
+- No unaligned physical writes, no write-behind, no dirty cache, no reduced
+  flush requirements, no implicit recovery/repair or target file deletion.
+- Added per-request sampled and cumulative counters for physical write
+  calls/bytes and RMW edge read calls/bytes.
+- Kept Fast / Verified policy, fail-closed fault handling, media-order checks,
+  read-only operations and source file preservation unchanged.
+- Added deterministic random adjacent-write, one-block, already-aligned,
+  >1MiB and across-the-two-media synthetic regression coverage.
+- No new physical-card testing. Actual speedup is **unknown** until measured.
+- Permanent deletion (Shift+Delete), zero-byte entries and device WinError 55
+  remain unresolved. Synthetic green tests do not qualify media integrity.
+
+
 ## v0.3.0-alpha — Fast write policy, partially tested
 - Added selectable Fast (write+flush) / Verified (write+flush+SHA256 readback) policy, fixed per mount.
 - Removed redundant SHA calculation and synchronous readback in Fast.
