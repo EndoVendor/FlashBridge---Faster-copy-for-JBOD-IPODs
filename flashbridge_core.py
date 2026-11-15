@@ -26,7 +26,7 @@ import threading
 import time
 import uuid
 
-VERSION = '0.3.1-alpha'
+VERSION = '0.3.3-rc1'
 WRITE_MODE_FAST = 'fast'
 WRITE_MODE_VERIFIED = 'verified'
 WRITE_MODES = frozenset((WRITE_MODE_FAST, WRITE_MODE_VERIFIED))
@@ -35,7 +35,7 @@ FAST_SUCCESS_SAMPLE_EVERY = 64
 
 MIB = 1024 ** 2
 GIB = 1024 ** 3
-ALIGN = 4096
+ALIGN = 4096  # conservative fallback; per-device alignment may be 512
 IO_CHUNK = MIB
 IMDISK_MAX_COMMAND = 4 * GIB
 PROXY_ALIGNMENT = 512  # ImDisk SYS rejects requested proxy I/O alignment > 512
@@ -130,6 +130,8 @@ class DiskInfo:
     system: bool = False
     readonly: bool = False
     offline: bool = False
+    logical_sector_size: int = 0  # 0 = unverified, fail conservative
+    physical_sector_size: int = 0
 
     @property
     def path(self):
@@ -144,7 +146,9 @@ def powershell_disks() -> list[DiskInfo]:
       name=[string]$_.FriendlyName;bus=$_.BusType.ToString();
       serial=[string]$_.SerialNumber;boot=[bool]$_.IsBoot;
       system=[bool]$_.IsSystem;readonly=[bool]$_.IsReadOnly;
-      offline=[bool]$_.IsOffline}
+      offline=[bool]$_.IsOffline;
+      logical_sector_size=[int]$_.LogicalSectorSize;
+      physical_sector_size=[int]$_.PhysicalSectorSize}
     } | ConvertTo-Json -Compress -Depth 3'''
     result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script],
                             capture_output=True, text=True, timeout=25, errors='replace')
@@ -153,6 +157,24 @@ def powershell_disks() -> list[DiskInfo]:
     raw = json.loads(result.stdout.lstrip('\ufeff'))
     if isinstance(raw, dict): raw = [raw]
     return [DiskInfo(**x) for x in (raw or [])]
+
+
+def disk_write_alignment(d: DiskInfo) -> int:
+    """No probing writes. Trust only a complete, coherent sector report.
+
+    A confirmed 512/512 device can accept 512-aligned requests from ImDisk.
+    A missing/contradictory report falls back to the prior 4KiB RMW path.
+    Larger physical sector sizes are respected, never rounded down.
+    This does not prove a USB bridge truthfully reports its media geometry.
+    """
+    logical, physical = d.logical_sector_size, d.physical_sector_size
+    if logical == physical == 512:
+        return 512
+    if (logical in (512, 1024, 2048, 4096, 8192, 16384)
+            and physical in (4096, 8192, 16384)
+            and physical >= logical):
+        return physical
+    return ALIGN
 
 
 def eligible(d: DiskInfo):
@@ -167,6 +189,7 @@ class RawDevice:
         self.size = int(size)
         self.writable = writable
         self.file = None
+        self.write_alignment = ALIGN
 
     def __enter__(self):
         self.file = open(self.path, 'r+b' if self.writable else 'rb', buffering=0)
@@ -203,8 +226,9 @@ class RawDevice:
     def write_at(self, offset, data):
         if not self.writable:
             raise PermissionError('Device is opened read-only.')
-        if offset % ALIGN or len(data) % ALIGN:
-            raise ValueError(f'Internal alignment violation: pos={offset}, length={len(data)}')
+        align = self.write_alignment
+        if offset % align or len(data) % align:
+            raise ValueError(f'Internal alignment violation ({align} B): pos={offset}, length={len(data)}')
         if offset < 0 or len(data) > self.size - offset:
             raise ValueError('WRITE out of range: ' + self.path)
         self.file.seek(offset)
@@ -447,6 +471,9 @@ class JoinedDisk:
         self.plan, self.writable = plan, writable
         self.a = raw_factory(plan.first.path, plan.first.size, writable)
         self.b = raw_factory(plan.second.path, plan.second.size, writable)
+        # Policy is locked per mount, never changed after RW begins.
+        self.a.write_alignment = disk_write_alignment(plan.first)
+        self.b.write_alignment = disk_write_alignment(plan.second)
         self.a.__enter__()
         try:
             self.b.__enter__()
@@ -512,16 +539,16 @@ class JoinedDisk:
         return self.read_raw(self.plan.fat.offset + offset, length, phase=phase)
 
     def _write_aligned_one(self, dev, offset, content, metrics=None):
-        """Fuse a misaligned request into ONE 4KiB-aligned physical write.
+        """Fuse a misaligned request into ONE device-sector-aligned physical write.
 
         Never overwrite neighboring bytes with zeros. Pre-read each *partial*
         edge block (once if both edges share one block), overlay the full
         incoming payload, and issue exactly one aligned physical WRITE.
         No deferred writes, no shared dirty cache, and no weakened flush.
 
-        This costs up to 8KiB of RMW reads and up to 8KiB of write
-        amplification, but removes the old three-write sequence that was
-        particularly costly on high-latency USB card readers. The caller
+        On confirmed 512/512 devices, ImDisk requests are 512-aligned and
+        require NO edge pre-reads. On unknown devices, the old 4KiB-safe
+        strategy remains. No automatic retry after an ambiguous I/O error. The caller
         continues to handle the JBOD boundary before reaching this method.
         """
         if not content:
@@ -531,9 +558,10 @@ class JoinedDisk:
             for i in range(0, len(content), IO_CHUNK):
                 self._write_aligned_one(dev, offset + i, content[i:i+IO_CHUNK], metrics)
             return
+        align = getattr(dev, 'write_alignment', ALIGN)
         end = offset + len(content)
-        aligned_start = (offset // ALIGN) * ALIGN
-        aligned_end = ((end + ALIGN - 1) // ALIGN) * ALIGN
+        aligned_start = (offset // align) * align
+        aligned_end = ((end + align - 1) // align) * align
         if offset < 0 or end > dev.size or aligned_end > dev.size:
             raise ValueError('Physical write would exceed medium bounds')
 
@@ -541,26 +569,42 @@ class JoinedDisk:
             metrics = {}
         if aligned_start == offset and aligned_end == end:
             # Preserve the zero-copy fast path for already aligned payloads.
-            self._device_write(dev, offset, content)
+            t_device_write = time.monotonic()
+            try:
+                self._device_write(dev, offset, content)
+            finally:
+                metrics['device_write_seconds'] = metrics.get('device_write_seconds', 0.0) + time.monotonic() - t_device_write
             metrics['physical_write_calls'] = metrics.get('physical_write_calls', 0) + 1
             metrics['physical_write_bytes'] = metrics.get('physical_write_bytes', 0) + len(content)
             return
 
         merged = bytearray(aligned_end - aligned_start)
         if offset != aligned_start:
-            edge = self._device_read(dev, aligned_start, ALIGN, 'RMW_READ')
-            merged[:ALIGN] = edge
+            t_read = time.monotonic()
+            try:
+                edge = self._device_read(dev, aligned_start, align, 'RMW_READ')
+            finally:
+                metrics['rmw_read_seconds'] = metrics.get('rmw_read_seconds', 0.0) + time.monotonic() - t_read
+            merged[:align] = edge
             metrics['rmw_read_calls'] = metrics.get('rmw_read_calls', 0) + 1
-            metrics['rmw_read_bytes'] = metrics.get('rmw_read_bytes', 0) + ALIGN
+            metrics['rmw_read_bytes'] = metrics.get('rmw_read_bytes', 0) + align
         if end != aligned_end:
-            tail_at = aligned_end - ALIGN
+            tail_at = aligned_end - align
             if tail_at != aligned_start or offset == aligned_start:
-                edge = self._device_read(dev, tail_at, ALIGN, 'RMW_READ')
-                merged[tail_at-aligned_start:tail_at-aligned_start+ALIGN] = edge
+                t_read = time.monotonic()
+                try:
+                    edge = self._device_read(dev, tail_at, align, 'RMW_READ')
+                finally:
+                    metrics['rmw_read_seconds'] = metrics.get('rmw_read_seconds', 0.0) + time.monotonic() - t_read
+                merged[tail_at-aligned_start:tail_at-aligned_start+align] = edge
                 metrics['rmw_read_calls'] = metrics.get('rmw_read_calls', 0) + 1
-                metrics['rmw_read_bytes'] = metrics.get('rmw_read_bytes', 0) + ALIGN
+                metrics['rmw_read_bytes'] = metrics.get('rmw_read_bytes', 0) + align
         merged[offset-aligned_start:end-aligned_start] = content
-        self._device_write(dev, aligned_start, merged)
+        t_device_write = time.monotonic()
+        try:
+            self._device_write(dev, aligned_start, merged)
+        finally:
+            metrics['device_write_seconds'] = metrics.get('device_write_seconds', 0.0) + time.monotonic() - t_device_write
         metrics['physical_write_calls'] = metrics.get('physical_write_calls', 0) + 1
         metrics['physical_write_bytes'] = metrics.get('physical_write_bytes', 0) + len(merged)
 
@@ -570,7 +614,8 @@ class JoinedDisk:
         if offset < 0 or offset % 512 or len(payload) % 512 or len(payload) > self.plan.volume_bytes - offset:
             raise ValueError(f'Invalid write: logical_offset={offset} len={len(payload)}')
         metrics = {'physical_write_calls': 0, 'physical_write_bytes': 0,
-                   'rmw_read_calls': 0, 'rmw_read_bytes': 0}
+                   'rmw_read_calls': 0, 'rmw_read_bytes': 0, 'rmw_read_seconds': 0.0,
+                   'device_write_seconds': 0.0}
         with self.lock:
             for dev, pos, n in self._slices(self.plan.fat.offset + offset, len(payload)):
                 self._write_aligned_one(dev, pos, payload[:n], metrics)
@@ -648,6 +693,12 @@ class ProxyServer(threading.Thread):
         self._physical_write_bytes = 0
         self._rmw_read_calls = 0
         self._rmw_read_bytes = 0
+        self._rmw_read_seconds = 0.0
+        self._device_write_seconds = 0.0
+        self._proxy_read_seconds = 0.0  # includes socket send + physical read
+        self._proxy_read_requests = 0
+        self._protocol_wait_seconds = 0.0  # idle waiting for next ImDisk command
+        self._last_stats_snapshot = None
         self.last_speed = 0
         self.last_error = None
         self.client_count = 0
@@ -699,6 +750,12 @@ class ProxyServer(threading.Thread):
                 self.plan.fat.sectors_fat, self.plan.fat.sectors_reserved):
                 raise RuntimeError('FAT32 boot parameters changed before mounting.')
             self.log.info('WRITE_POLICY', mode=self.write_mode if self.writable else 'readonly',
+                          first_sector_sizes={'logical': self.plan.first.logical_sector_size,
+                                              'physical': self.plan.first.physical_sector_size},
+                          second_sector_sizes={'logical': self.plan.second.logical_sector_size,
+                                               'physical': self.plan.second.physical_sector_size},
+                          write_alignments={'first': self.dev.a.write_alignment,
+                                            'second': self.dev.b.write_alignment},
                           flush_each_request=self.writable,
                           readback_each_request=self.writable and self.write_mode == WRITE_MODE_VERIFIED,
                           fast_success_log_sample=FAST_SUCCESS_SAMPLE_EVERY,
@@ -752,7 +809,9 @@ class ProxyServer(threading.Thread):
     def _handle_client(self, client):
         client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         while not self.stopping.is_set():
+            t_wait = time.monotonic()
             code_raw = recv_exact(client, 8)
+            self._protocol_wait_seconds += time.monotonic() - t_wait
             if code_raw is None: return
             (code,) = struct.unpack('<Q', code_raw)
             self.req_id += 1
@@ -769,20 +828,24 @@ class ProxyServer(threading.Thread):
                 self._check_range(offset, nbytes)
                 if ident % 128 == 0:
                     self.log.info('READ_SAMPLE', req_id=ident, logical_offset=offset, bytes=nbytes)
-                t0 = time.monotonic()
-                # First chunk fetched before success reply; remainder streamed.
-                firstn = min(IO_CHUNK, nbytes)
-                first = self.dev.read_volume(offset, firstn)
-                client.sendall(struct.pack('<QQ', 0, nbytes))
-                if first: client.sendall(first)
-                at = offset + firstn
-                while at < offset + nbytes:
-                    nn = min(IO_CHUNK, offset + nbytes - at)
-                    client.sendall(self.dev.read_volume(at, nn))
-                    at += nn
-                self.bytes_read += nbytes
-                if self.bytes_read // (256*MIB) != (self.bytes_read-nbytes)//(256*MIB):
-                    self.log.info('READ_TOTAL', bytes_read=self.bytes_read)
+                t_read = time.monotonic()
+                try:
+                    # Covers device read AND socket send (both can stall the writer).
+                    firstn = min(IO_CHUNK, nbytes)
+                    first = self.dev.read_volume(offset, firstn)
+                    client.sendall(struct.pack('<QQ', 0, nbytes))
+                    if first: client.sendall(first)
+                    at = offset + firstn
+                    while at < offset + nbytes:
+                        nn = min(IO_CHUNK, offset + nbytes - at)
+                        client.sendall(self.dev.read_volume(at, nn))
+                        at += nn
+                    self.bytes_read += nbytes
+                    self._proxy_read_requests += 1
+                    if self.bytes_read // (256*MIB) != (self.bytes_read-nbytes)//(256*MIB):
+                        self.log.info('READ_TOTAL', bytes_read=self.bytes_read)
+                finally:
+                    self._proxy_read_seconds += time.monotonic() - t_read
             elif code == 3: # WRITE
                 header = recv_exact(client, 16)
                 if header is None: raise ConnectionError('WRITE header missing')
@@ -813,7 +876,8 @@ class ProxyServer(threading.Thread):
                 readback_seconds = 0.0
                 flushed_media = ()
                 io_counts = {'physical_write_calls':0, 'physical_write_bytes':0,
-                             'rmw_read_calls':0, 'rmw_read_bytes':0}
+                             'rmw_read_calls':0, 'rmw_read_bytes':0, 'rmw_read_seconds':0.0,
+                             'device_write_seconds':0.0}
                 while remaining:
                     take = min(remaining, IO_CHUNK)
                     phase_start = time.monotonic()
@@ -920,6 +984,8 @@ class ProxyServer(threading.Thread):
                 self._physical_write_bytes += io_counts['physical_write_bytes']
                 self._rmw_read_calls += io_counts['rmw_read_calls']
                 self._rmw_read_bytes += io_counts['rmw_read_bytes']
+                self._rmw_read_seconds += io_counts['rmw_read_seconds']
+                self._device_write_seconds += io_counts['device_write_seconds']
                 elapsed = time.monotonic()-t0
                 self._write_total_seconds += elapsed
                 self._write_physical_seconds += physical_write_seconds
@@ -944,12 +1010,33 @@ class ProxyServer(threading.Thread):
                                   physical_write_bytes=io_counts['physical_write_bytes'],
                                   rmw_read_calls=io_counts['rmw_read_calls'],
                                   rmw_read_bytes=io_counts['rmw_read_bytes'],
+                                  rmw_read_ms=round(io_counts['rmw_read_seconds']*1000,2),
+                                  device_write_ms=round(io_counts['device_write_seconds']*1000,2),
                                   total_bytes_written=self.bytes_written,
                                   total_verified_bytes=self.verified_bytes,
                                   total_write_requests=self.write_requests,
                                   sample_every=1 if need_readback else FAST_SUCCESS_SAMPLE_EVERY)
+                if self._last_stats_snapshot is None:
+                    self._last_stats_snapshot = (
+                        confirmed_ts, self.bytes_written, self._write_total_seconds,
+                        self._proxy_read_seconds, self._protocol_wait_seconds,
+                        self._proxy_read_requests, self.bytes_read)
                 if self.write_requests % FAST_SUCCESS_SAMPLE_EVERY == 0:
+                    old_ts, old_written, old_write_sec, old_read_sec, old_wait_sec, old_reads, old_read_bytes = self._last_stats_snapshot
+                    interval_seconds = max(confirmed_ts-old_ts, 1e-9)
+                    interval_written = self.bytes_written-old_written
+                    interval_write_seconds = self._write_total_seconds-old_write_sec
                     self.log.info('IO_STATS', mode=self.write_mode,
+                                  # Compare GUI's real-time rate with the active-only rate.
+                                  rolling_wall_mib_s=round(self.rolling_write_rate()/MIB,2),
+                                  interval_wall_mib_s=round(interval_written/MIB/interval_seconds,2),
+                                  interval_active_mib_s=round(interval_written/MIB/max(interval_write_seconds,1e-9),2),
+                                  interval_wall_seconds=round(interval_seconds,3),
+                                  interval_write_seconds=round(interval_write_seconds,3),
+                                  interval_proxy_read_seconds=round(self._proxy_read_seconds-old_read_sec,3),
+                                  interval_proxy_read_requests=self._proxy_read_requests-old_reads,
+                                  interval_proxy_read_bytes=self.bytes_read-old_read_bytes,
+                                  interval_protocol_wait_seconds=round(self._protocol_wait_seconds-old_wait_sec,3),
                                   total_bytes_written=self.bytes_written,
                                   total_verified_bytes=self.verified_bytes,
                                   write_requests=self.write_requests,
@@ -961,7 +1048,13 @@ class ProxyServer(threading.Thread):
                                   physical_write_calls=self._physical_write_calls,
                                   physical_write_bytes=self._physical_write_bytes,
                                   rmw_read_calls=self._rmw_read_calls,
-                                  rmw_read_bytes=self._rmw_read_bytes)
+                                  rmw_read_bytes=self._rmw_read_bytes,
+                                  rmw_read_seconds=round(self._rmw_read_seconds,3),
+                                  device_write_seconds=round(self._device_write_seconds,3))
+                    self._last_stats_snapshot = (
+                        confirmed_ts, self.bytes_written, self._write_total_seconds,
+                        self._proxy_read_seconds, self._protocol_wait_seconds,
+                        self._proxy_read_requests, self.bytes_read)
             elif code == 5: # CLOSE
                 self.log.info('PROXY_CLOSE', req_id=ident)
                 return

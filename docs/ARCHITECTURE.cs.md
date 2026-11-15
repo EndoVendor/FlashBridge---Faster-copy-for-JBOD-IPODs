@@ -56,3 +56,13 @@ Syntetické testy pokrývají detekci, odmítnutí nejistoty, přechod hranice o
 
 
 **v0.3.0:** Režim FAST vypouští readback bloků, nikoli flush. Neopravuje problém trvalého mazání FAT32 a negarantuje integritu po výpadku. Úspěšné zápisy jsou v logu vzorkované, chyby úplné.
+
+**v0.3.2:** Nově se pro každé médium používá ověřená hlášená geometrie sektorů.
+Při hodnotách 512/512 B se zapisuje přímo bez 4KiB RMW; při neznámé nebo
+rozporné geometrii zůstává konzervativní cesta. Statistiky rozlišují
+propustnost za skutečný čas, aktivní zápis, čtení a čekání na požadavky ImDisk.
+Nedochází ke spekulativnímu zápisu ani k automatickému opakování zápisu po chybě.
+
+### v0.3.3-rc1: rozhraní a EXE
+
+Kopírovací průvodce Music/Audiobooks byl odstraněn z GUI; pomocná funkce v knihovně zůstává jen kvůli kompatibilitě/testům. Odpojování nadále používá bezpečný `imdisk -d`, kontroluje identitu virtuální jednotky, při odmítnutí ponechává proxy i fyzické disky a nabízí opakování po zavření správců souborů. `-D`/`-R` ani ukončování procesů se nepoužívá. Build Windows EXE je ve workflow `windows-exe.yml`; ImDisk zůstává vnější závislostí. Fyzický zápisový engine je beze změny.

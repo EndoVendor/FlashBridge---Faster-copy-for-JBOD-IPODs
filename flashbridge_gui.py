@@ -17,8 +17,7 @@ from flashbridge_i18n import translate
 from flashbridge_core import (
     ProxyServer, discover_pair, discover_all_pairs, eligible, format_bytes,
     imdisk_list, imdisk_mount, imdisk_unmount, is_elevated, load_optional_manifests,
-    make_logger, path_letter_free, powershell_disks, plan_missing_files,
-    copy_only_missing, GIB, VERSION,
+    make_logger, path_letter_free, powershell_disks, VERSION,
 )
 
 
@@ -52,18 +51,13 @@ class BridgeApp:
         self.mounted_letter = None
         self.imdisk_unit = None
         self.active_task = None
-        self.stop_copy = threading.Event()
-        self.copy_plan = None
         self.selected = set()
         self.letter = tk.StringVar(value='R')
         # Do not assume any user's source drive letter.
-        self.source_root = tk.StringVar(value='')
         self.manifests_folder = tk.StringVar(value='')
-        self.verify_copy = tk.BooleanVar(value=True)
         self.write_mode = tk.StringVar(value='fast')  # Default RW policy: fast+flush
         self.status = tk.StringVar(value=self.t('ready'))
         self.progress = tk.StringVar(value='0 B')
-        self.copy_info = tk.StringVar(value=self.t('copy_unanalyzed'))
         self._build()
         self._translate_widgets()
         self._buttons()
@@ -100,8 +94,8 @@ class BridgeApp:
         self.log.info('LANGUAGE_CHANGED', locale=self.language)
 
     def _build(self):
-        self.root.geometry('1100x790')
-        self.root.minsize(960, 705)
+        self.root.geometry('1100x720')
+        self.root.minsize(960, 620)
         outer = ttk.Frame(self.root, padding=12)
         outer.pack(fill='both', expand=True)
         top = ttk.Frame(outer)
@@ -110,6 +104,7 @@ class BridgeApp:
         self._widget(ttk.Label, top, 'tagline', foreground='#555').pack(side='left', padx=12)
         self.admin = ttk.Label(top, text='', foreground='#0A7A3E' if is_elevated() else '#B33')
         self.admin.pack(side='right', padx=5)
+        self._widget(ttk.Button, top, 'help_button', command=self._show_help).pack(side='right', padx=8)
         ttk.Combobox(top, textvariable=self.lang_var, values=('English', 'Čeština'),
                      width=10, state='readonly').pack(side='right', padx=5)
         self._widget(ttk.Label, top, 'language').pack(side='right', padx=4)
@@ -179,28 +174,8 @@ class BridgeApp:
         self._widget(ttk.Label, mnt, 'delete_warning', wraplength=1000,
                      foreground='#9C5023').pack(anchor='w', padx=8, pady=(0, 7))
 
-        copy = self._widget(ttk.LabelFrame, outer, 'copy_header')
-        copy.pack(fill='x', pady=4)
-        cr = ttk.Frame(copy)
-        cr.pack(fill='x', padx=8, pady=6)
-        self._widget(ttk.Label, cr, 'source_root').pack(side='left')
-        ttk.Entry(cr, textvariable=self.source_root, width=34).pack(side='left', padx=6)
-        self._widget(ttk.Button, cr, 'browse', command=self._choose_source).pack(side='left')
-        self._widget(ttk.Checkbutton, cr, 'verify_sha', variable=self.verify_copy).pack(side='left', padx=14)
-        cr2 = ttk.Frame(copy)
-        cr2.pack(fill='x', padx=8)
-        self.plan_copy_button = self._widget(ttk.Button, cr2, 'plan_copy', command=self._analyze_copy)
-        self.plan_copy_button.pack(side='left')
-        self.copy_button = self._widget(ttk.Button, cr2, 'start_copy', command=self._copy)
-        self.copy_button.pack(side='left', padx=5)
-        self.stop_copy_button = self._widget(ttk.Button, cr2, 'stop_copy', command=self._cancel_copy)
-        self.stop_copy_button.pack(side='left')
-        ttk.Label(cr2, textvariable=self.copy_info, wraplength=620).pack(side='left', padx=9)
-        cr3 = ttk.Frame(copy)
-        cr3.pack(fill='x', padx=8, pady=(5, 7))
-        self.bar = ttk.Progressbar(cr3, mode='determinate', maximum=100)
-        self.bar.pack(side='left', fill='x', expand=True)
-        ttk.Label(cr3, textvariable=self.progress, width=25, anchor='e').pack(side='left', padx=6)
+        self._widget(ttk.Label, outer, 'file_copy_note', wraplength=1040,
+                     foreground='#475D6B').pack(anchor='w', pady=(5, 3))
 
         logs = self._widget(ttk.LabelFrame, outer, 'logs_header')
         logs.pack(fill='both', expand=True, pady=4)
@@ -251,7 +226,6 @@ class BridgeApp:
         if self.plan and selected == {self.plan.first.number, self.plan.second.number}:
             return
         self.plan = None
-        self.copy_plan = None
         self._buttons()
 
     def _auto_detect(self):
@@ -278,10 +252,6 @@ class BridgeApp:
     def _choose_manifest(self):
         value = filedialog.askdirectory(title=self.t('manifest_pick'))
         if value: self.manifests_folder.set(value)
-
-    def _choose_source(self):
-        value = filedialog.askdirectory(title=self.t('source_pick'))
-        if value: self.source_root.set(value)
 
     def _inspect_imdisk(self):
         def work():
@@ -374,58 +344,71 @@ class BridgeApp:
             code, output = imdisk_unmount(letter)
             self.log.info('IMDISK_UNMOUNT', result=code, output=output.strip(), letter=letter, unit=unit)
             if code != 0:
+                # If a different ImDisk process removed it meanwhile, validate
+                # by *unit identity* instead of assuming an error means mounted.
+                if unit not in imdisk_units(imdisk_list()):
+                    self.log.info('UNMOUNT_CONFIRMED', letter=letter, unit=unit,
+                                  nonzero_imdisk_exit=code)
+                    self._post('unmounted')
+                    return
+                self.log.warning('UNMOUNT_BUSY', result=code, letter=letter, unit=unit,
+                                 output=output.strip())
                 self._post('unmount_error', output)
-                raise RuntimeError(self.t('unmount_failed', error=output))
+                return
             for _ in range(20):
                 if unit not in imdisk_units(imdisk_list()):
+                    self.log.info('UNMOUNT_CONFIRMED', letter=letter, unit=unit,
+                                  nonzero_imdisk_exit=False)
                     self._post('unmounted')
                     return
                 time.sleep(.5)
-            self._post('unmount_error', imdisk_list())
-            raise RuntimeError(self.t('orphaned_imdisk', unit=unit))
+            details = imdisk_list()
+            self.log.warning('UNMOUNT_STILL_PRESENT', unit=unit, output=details.strip())
+            self._post('unmount_error', details)
         self._task('unmounting', work, letter=letter)
 
-    def _analyze_copy(self):
-        if not self.mounted or self.mode != 'RW': return
-        src = self.source_root.get()
-        target = self.mounted_letter + ':\\'
-        def work():
-            plan = plan_missing_files(src, target, self.log)
-            self._post('copy_plan', plan)
-        self._task('analyzing', work)
+    def _offer_unmount_retry(self, details):
+        # No process killing, no -D / -R, no forced raw-handle closure.
+        if not self.mounted or self.active_task:
+            return
+        msg = self.t('unmount_busy_help')
+        if details:
+            msg += '\n\n' + self.t('unmount_diagnostic', detail=details[:500])
+        if messagebox.askretrycancel(self.t('unmount_busy_title'), msg, parent=self.root):
+            self.log.info('UNMOUNT_USER_RETRY', letter=self.mounted_letter, unit=self.imdisk_unit)
+            self._unmount()
 
-    def _copy(self):
-        if not self.copy_plan or not self.mounted or self.mode != 'RW': return
-        plan = self.copy_plan
-        if plan.free_bytes is None:
-            messagebox.showerror(self.t('free_unknown_title'), self.t('free_unknown'))
+    def _show_help(self):
+        if getattr(self, '_help_popup', None) and self._help_popup.winfo_exists():
+            self._help_popup.lift()
+            self._help_popup.focus_force()
             return
-        if plan.bytes_to_copy + 2*GIB > plan.free_bytes:
-            messagebox.showerror(self.t('space_title'), self.t('space_short',
-                needed=format_bytes(plan.bytes_to_copy), free=format_bytes(plan.free_bytes)))
-            return
-        if plan.differing_size_count or plan.over_fat32_limit:
-            if not messagebox.askyesno(self.t('differences_title'), self.t('differences_confirm',
-                different=plan.differing_size_count, oversize=plan.over_fat32_limit)):
-                return
-        if not messagebox.askyesno(self.t('copy_confirm_title'), self.t('copy_confirm',
-            count=len(plan.entries), size=format_bytes(plan.bytes_to_copy))):
-            return
-        self.stop_copy.clear()
-        verify = bool(self.verify_copy.get())
-        def work():
-            result = copy_only_missing(plan, verify=verify, log=self.log,
-                stop=self.stop_copy,
-                fault=lambda: self.server is None or self.server.failed or not self.server.ready,
-                progress=lambda *args: self._post('copy_progress', *args))
-            self._post('copy_finished', result['completed'], result['total_files'],
-                       result['new_bytes'], result['cancelled'])
-        self._task('copying', work)
-
-    def _cancel_copy(self):
-        self.stop_copy.set()
-        self.log.warning('COPY_CANCEL_REQUESTED')
-        self.status.set(self.t('copy_stop'))
+        popup = tk.Toplevel(self.root)
+        self._help_popup = popup
+        popup.title(self.t('help_title'))
+        popup.geometry('840x600')
+        popup.minsize(680, 450)
+        popup.transient(self.root)
+        notebook = ttk.Notebook(popup)
+        notebook.pack(fill='both', expand=True, padx=12, pady=12)
+        for key, topic in (('help_overview', 'overview'), ('help_workflow', 'workflow'),
+                           ('help_unmount', 'unmount'), ('help_safety', 'safety'),
+                           ('help_diagnostics', 'diagnostics')):
+            frame = ttk.Frame(notebook)
+            notebook.add(frame, text=self.t(key))
+            viewer = tk.Text(frame, wrap='word', font=('Segoe UI', 10), padx=16, pady=12,
+                             relief='flat', background='#F6F8FB')
+            scroll = ttk.Scrollbar(frame, command=viewer.yview)
+            viewer.configure(yscrollcommand=scroll.set)
+            scroll.pack(side='right', fill='y')
+            viewer.pack(side='left', fill='both', expand=True)
+            viewer.insert('1.0', self.t('help_text_'+topic, version=VERSION))
+            viewer.configure(state='disabled')
+        bottom = ttk.Frame(popup, padding=(12, 0, 12, 12))
+        bottom.pack(fill='x')
+        ttk.Button(bottom, text=self.t('open_logs'), command=self._open_logs).pack(side='left')
+        ttk.Button(bottom, text=self.t('help_close'), command=popup.destroy).pack(side='right')
+        popup.bind('<Escape>', lambda _event: popup.destroy())
 
     def _buttons(self):
         busy = self.active_task is not None
@@ -440,9 +423,6 @@ class BridgeApp:
         state(self.verified_radio, idle)
         state(self.unmount_button, not busy and self.mounted)
         state(self.inspect_button, not busy)
-        state(self.plan_copy_button, not busy and self.mounted and self.mode == 'RW' and not self._fault())
-        state(self.copy_button, not busy and self.copy_plan is not None and self.mode == 'RW' and not self._fault())
-        state(self.stop_copy_button, busy and self.active_task == 'copying')
 
     def _fault(self):
         return self.server is None or self.server.failed or not self.server.ready
@@ -468,13 +448,14 @@ class BridgeApp:
             pass
         if self.server and self.server.failed:
             self.status.set(self.t('proxy_fault', error=self.server.last_error))
-            self.copy_plan = None
         elif self.mounted and self.server:
             self.status.set(self.t('proxy_live', mode=self.mode, letter=self.mounted_letter,
                 connection=self.t('connected' if self.server.active else 'waiting'),
                 read=format_bytes(self.server.bytes_read),
                 written=format_bytes(self.server.bytes_written),
-                speed=format_bytes(self.server.rolling_write_rate())))
+                speed=format_bytes(self.server.rolling_write_rate()),
+                active_avg=format_bytes(self.server.bytes_written / max(self.server._write_total_seconds,1e-9))
+                    if self.server.write_requests else '0 B'))
         self._buttons()
         self.root.after(200, self._tick)
 
@@ -483,7 +464,6 @@ class BridgeApp:
         if key == 'disks':
             self.disks = a[1]
             self.plan = None
-            self.copy_plan = None
             self.selected.clear()
             for item in self.tree.get_children(): self.tree.delete(item)
             for d in self.disks:
@@ -519,17 +499,17 @@ class BridgeApp:
             self.mode = None
             self.mounted_letter = None
             self.imdisk_unit = None
-            self.copy_plan = None
             if self.server:
                 self.server.stop()
-                if not self.server.active:
-                    self.server.join(5)
-                    if not self.server.is_alive():
-                        self.server.close_devices()
-                        self.server = None
+                # Cleanup after confirmed ImDisk removal, without blocking Tk.
+                # Never close raw media while proxy thread remains live.
+                self.root.after(250, self._reap_stopped_server)
             self.status.set(self.t('unmounted_ok'))
         elif key == 'unmount_error':
             self.status.set(self.t('unmount_incomplete'))
+            # Keep proxy and disk handles alive. A retry requires a fresh user click.
+            detail = a[1].strip() if len(a) > 1 else ''
+            self.root.after(350, lambda d=detail: self._offer_unmount_retry(d))
         elif key == 'task_error':
             self.status.set(self.t('task_error', message=a[1]))
             messagebox.showerror(self.t('task_error_title'), a[1])
@@ -537,22 +517,17 @@ class BridgeApp:
             self.active_task = None
         elif key == 'imdisk':
             messagebox.showinfo('ImDisk', a[1] or self.t('imdisk_none'))
-        elif key == 'copy_plan':
-            self.copy_plan = p = a[1]
-            self.copy_info.set(self.t('copy_summary', missing=len(p.entries),
-                size=format_bytes(p.bytes_to_copy), existing=p.existing_count,
-                different=p.differing_size_count, oversize=p.over_fat32_limit,
-                free=format_bytes(p.free_bytes)))
-        elif key == 'copy_progress':
-            done, total, nbytes, all_bytes, _target = a[1:]
-            self.bar['value'] = 100 * nbytes / all_bytes if all_bytes else 100
-            self.progress.set(self.t('copy_progress', done=done, total=total,
-                                     bytes=format_bytes(nbytes)))
-        elif key == 'copy_finished':
-            done, total, nbytes, cancelled = a[1:]
-            self.copy_plan = None
-            self.copy_info.set(self.t('copy_result', status=self.t('stopped' if cancelled else 'completed'),
-                done=done, total=total, bytes=format_bytes(nbytes)))
+        self._buttons()
+
+    def _reap_stopped_server(self):
+        if self.mounted or not self.server:
+            return
+        if self.server.is_alive():
+            self.root.after(500, self._reap_stopped_server)
+            return
+        self.server.close_devices()
+        self.server = None
+        self.log.info('PROXY_HANDLES_CLOSED_AFTER_UNMOUNT')
         self._buttons()
 
     def _on_close(self):

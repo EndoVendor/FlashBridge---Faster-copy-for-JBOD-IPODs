@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.3.3-rc1 — Usability and Windows packaging (partially tested)
+
+- Bilingual Help/Safety toolbox and focused main GUI; optional Music/Audiobooks copy wizard removed from the GUI.
+- Safe ImDisk unmount retry with busy-volume guidance, no forced removal.
+- Windows GUI executable packaging in GitHub Actions; EXE unsigned, ImDisk external prerequisite.
+- Documentation refreshed EN/CS; physical I/O engine unchanged from v0.3.2.
+
+
+## v0.3.2-alpha — Sector-aware direct I/O and wall-clock diagnostics (partially tested)
+- Use Windows reported physical/logical sector sizes per device, re-read at mount.
+  Confirmed 512/512 uses **512B-aligned direct writes without 4KiB RMW**.
+  Unknown/inconsistent reports retain prior 4KiB fallback; larger coherent
+  physical sectors are respected.
+- Preserve per-request synchronous flush, no speculative write caching or
+  automatic retry after partial/unknown I/O; error handling stays fail-closed.
+- Separate real 10s GUI throughput from cumulative active-write speed;
+  instrument proxy read time, protocol waiting, RMW edge read time and actual
+  physical device write time in `IO_STATS` and the offline report tool.
+- Added synthetic 512-sector, mixed geometry and slowdown-metrics regression
+  tests. **No real SD/USB hardware validation of 512B writes yet.**
+- Known permanent-delete/zero-byte and USB I/O disappearance issues unresolved.
+
+
 ## v0.3.1-alpha — Fused aligned writes, partially tested
 - Replaced the old three-write 4KiB RMW path for misaligned 1MiB requests
   with a **single merged 4KiB-aligned physical write**, preserving bytes in
