@@ -1,5 +1,9 @@
 # FlashBridge
 
+> **NEW: FlashBridge v0.3.3-rc2 — Windows EXE release candidate.** [Step-by-step user guide (English)](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/blob/release/flashbridge-v0.3.3-rc2/docs/USER_GUIDE.md) · [Český návod](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/blob/release/flashbridge-v0.3.3-rc2/docs/USER_GUIDE.cs.md) · [Download built Windows EXE → Artifacts](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/actions/runs/43717489315) · [rc2 source branch](https://github.com/martinfrolik-art/FlashBridge---Faster-copy-for-JBOD-IPODs/tree/release/flashbridge-v0.3.3-rc2).
+>
+> **Important version distinction:** this **main** branch still contains the older **v0.3.1-alpha** source. The rc2 code and updated EN/CS documentation are on the separate **release/flashbridge-v0.3.3-rc2** branch, pending hardware acceptance. Rc2 inspects individual cards and an assembled iPod read-only, offers opt-in ImDisk installation and supports already existing recognized two-card FAT32 JBOD. **It does not format cards or provision iPod firmware.** Experimental physical write access can damage data; do not use your only copy.
+
 **Evidence-based two-media FAT32 JBOD detection, mounting and copy monitoring for Windows.**  
 **English (primary)** | [Čeština](README.cs.md)
 
