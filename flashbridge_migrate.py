@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import struct
 import sys
 import time
@@ -93,12 +94,29 @@ def probe():
         }, ensure_ascii=False))
 
 
+def assert_not_on_source_disk(number: int, image: Path):
+    """Reject destination drive letters physically backed by source SD device."""
+    drive = image.drive.rstrip(":").upper()
+    if not re.fullmatch(r"[A-Z]", drive):
+        raise RuntimeError("Image output must be on a distinct local drive letter.")
+    script = ("$ErrorActionPreference='Stop'; "
+              "$p=Get-Partition -DriveLetter '" + drive + "'; "
+              "[string]$p.DiskNumber")
+    res = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                         capture_output=True, text=True, timeout=25, errors="replace")
+    if res.returncode or not res.stdout.strip().isdigit():
+        raise RuntimeError("Could not establish image destination physical disk identity.")
+    if int(res.stdout.strip()) == number:
+        raise RuntimeError("Refusing to create image ON its own source physical disk.")
+
+
 def capture_disk(number: int, expected_size: int, expected_first4k: str, image: Path):
     if os.name != "nt":
         raise RuntimeError("Capturing physical drives requires Windows.")
     if not is_elevated():
         raise RuntimeError("Run from an elevated Windows terminal.")
     image = image.expanduser().absolute()
+    assert_not_on_source_disk(number, image)
     info_path = capture_info_path(image)
     partial = image.with_name(image.name + ".partial")
     if any(p.exists() for p in (image, info_path, partial)):
@@ -264,10 +282,12 @@ def mount_source(image_a: Path, image_b: Path, letter: str):
     print(f"Read-only image source mounted at {letter}:")
     print("Copy with Total Commander to a SEPARATELY PROVISIONED target volume.")
     print("Press Ctrl+C to request a NORMAL unmount. Never remove images while mounted.")
+    warned = False
     try:
         while True:
-            if server.failed:
+            if server.failed and not warned:
                 print("Proxy failed; unmount normally before leaving.", file=sys.stderr)
+                warned = True
             time.sleep(2)
     except KeyboardInterrupt:
         pass
@@ -280,7 +300,10 @@ def mount_source(image_a: Path, image_b: Path, letter: str):
                 break
             print(f"ImDisk unmount refused: {info}", file=sys.stderr)
             print("Close Explorer/Commander windows and release all file handles.")
-            input("Press Enter to RETRY normal unmount; do not close this process: ")
+            try:
+                input("Press Enter to RETRY normal unmount; do not close this process: ")
+            except (KeyboardInterrupt, EOFError):
+                time.sleep(2)
     finally:
         if code == 0:
             server.stop()
@@ -288,16 +311,22 @@ def mount_source(image_a: Path, image_b: Path, letter: str):
             log.close()
 
 
+def is_reparse_or_link(path: Path) -> bool:
+    """Windows directory junctions are not consistently reported as symlinks."""
+    attrs = getattr(path.lstat(), "st_file_attributes", 0)
+    return path.is_symlink() or bool(attrs & 0x400)
+
+
 def scan_tree(root: Path, hash_files: bool = True) -> dict:
     """Inventory all regular files, including hidden and .rockbox; no symlink traversal."""
-    if not root.is_dir():
-        raise RuntimeError(f"Not a mounted directory: {root}")
+    if not root.is_dir() or is_reparse_or_link(root):
+        raise RuntimeError(f"Not a safe mounted directory: {root}")
     files, directories, seen = [], [], set()
     for current, dirs, names in os.walk(root, topdown=True, followlinks=False):
         here = Path(current)
         for name in dirs:
             path = here/name
-            if path.is_symlink():
+            if is_reparse_or_link(path):
                 raise RuntimeError(f"Refusing symlink/reparse directory: {path}")
             rel = path.relative_to(root).as_posix()
             key = rel.casefold()
@@ -307,7 +336,7 @@ def scan_tree(root: Path, hash_files: bool = True) -> dict:
             directories.append(rel)
         for name in names:
             path = here/name
-            if path.is_symlink() or not path.is_file():
+            if is_reparse_or_link(path) or not path.is_file():
                 raise RuntimeError(f"Refusing symlink/special file: {path}")
             rel = path.relative_to(root).as_posix()
             key = rel.casefold()
@@ -328,6 +357,7 @@ def scan_tree(root: Path, hash_files: bool = True) -> dict:
         "file_count": len(files),
         "total_file_bytes": sum(item["bytes"] for item in files),
         "complete_file_sha256": hash_files,
+        "source_root": str(root.resolve()),
     }
 
 
@@ -343,6 +373,8 @@ def verify_target(manifest: Path, target: Path, allow_extras: bool = False):
     expected = json.loads(manifest.read_text(encoding="utf-8"))
     if expected.get("schema") != FILE_SCHEMA or not expected.get("complete_file_sha256"):
         raise RuntimeError("Refusing incomplete/unknown source manifest.")
+    if expected.get("source_root") == str(target.resolve()):
+        raise RuntimeError("Verification target is the same path as the source manifest.")
     actual = scan_tree(target)
     a = {x["path"].casefold(): x for x in actual["files"]}
     b = {x["path"].casefold(): x for x in expected["files"]}
@@ -407,6 +439,8 @@ def main(argv=None):
         result = manifest_source(args.source, args.output)
         print(f"Manifest: {result['file_count']} files, {result['total_file_bytes']} bytes")
     elif args.command == "verify":
+        if args.target.resolve() in args.report.resolve().parents:
+            raise RuntimeError("Verification report must be written outside the target disk.")
         result = verify_target(args.manifest, args.target, args.allow_extra_target_files)
         write_json_new(args.report, result)
         print(json.dumps(result, ensure_ascii=False, indent=2))
