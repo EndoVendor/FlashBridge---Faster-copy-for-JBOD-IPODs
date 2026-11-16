@@ -81,6 +81,23 @@ class MigrationPreflightTests(unittest.TestCase):
         self.assertLess(plan.fat.end, plan.combined)
         self.assertFalse(plan.read_write_safe)
 
+
+    def test_read_only_joined_image_reads_across_card_boundary(self):
+        from flashbridge_core import JoinedDisk
+        plan = m.reconstruct_plan(self.a, self.b, verify=False)
+        device = JoinedDisk(plan, writable=False)
+        try:
+            offset = plan.first.size - 32
+            observed = device.read_raw(offset, 64)
+            with self.a.open("rb") as fa, self.b.open("rb") as fb:
+                fa.seek(offset)
+                expected = fa.read(32) + fb.read(32)
+            self.assertEqual(observed, expected)
+            with self.assertRaises(PermissionError):
+                device.write_volume(0, b"\0" * 512)
+        finally:
+            device.close()
+
     def test_source_images_wrong_order_fails_closed(self):
         with self.assertRaises(RuntimeError):
             m.reconstruct_plan(self.b, self.a, verify=False)
