@@ -32,10 +32,14 @@ FILE_SCHEMA = "flashbridge-file-manifest-v1"
 
 
 def file_digest(path: Path) -> str:
+    before = path.stat()
     h = hashlib.sha256()
     with path.open("rb") as f:
         for data in iter(lambda: f.read(CHUNK), b""):
             h.update(data)
+    after = path.stat()
+    if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+        raise RuntimeError(f"File changed while hashing: {path}")
     return h.hexdigest()
 
 
@@ -137,12 +141,16 @@ def capture_disk(number: int, expected_size: int, expected_first4k: str, image: 
         digest = hashlib.sha256()
         with partial.open("xb") as out:
             offset = 0
+            next_progress = 1024**3
             while offset < disk.size:
                 n = min(CHUNK, disk.size - offset)
                 data = raw.read_at(offset, n)
                 out.write(data)
                 digest.update(data)
                 offset += n
+                if offset >= next_progress or offset == disk.size:
+                    print(f"Captured {offset}/{disk.size} bytes (input RO)", flush=True)
+                    next_progress = offset + 1024**3
             out.flush()
             os.fsync(out.fileno())
         # Detect source header change during imaging. Not a replacement for
@@ -367,7 +375,10 @@ def scan_tree(root: Path, hash_files: bool = True) -> dict:
     if not root.is_dir() or is_reparse_or_link(root):
         raise RuntimeError(f"Not a safe mounted directory: {root}")
     files, directories, seen = [], [], set()
-    for current, dirs, names in os.walk(root, topdown=True, followlinks=False):
+    def fail_walk(error):
+        raise RuntimeError(f"Directory traversal incomplete: {error}") from error
+    for current, dirs, names in os.walk(root, topdown=True, followlinks=False,
+                                        onerror=fail_walk):
         here = Path(current)
         for name in dirs:
             path = here/name
