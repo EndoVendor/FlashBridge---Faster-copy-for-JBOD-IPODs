@@ -21,7 +21,7 @@ import time
 
 from flashbridge_core import (
     DiskInfo, Plan, ProxyServer, RawDevice, FAT32_MAX_FILE, MIB,
-    eligible, imdisk_mount, imdisk_unmount, is_elevated, make_logger,
+    eligible, discover_pair, imdisk_mount, imdisk_unmount, is_elevated, make_logger,
     parse_fat32_boot, path_letter_free, powershell_disks,
 )
 
@@ -258,6 +258,51 @@ def migration_plan(image_a: Path, image_b: Path, target_a_bytes: int, target_b_b
     }
 
 
+
+def check_provisioned_target(plan_path: Path, first_disk: int, second_disk: int) -> dict:
+    """Strictly read-only physical target check. NOT a boot/FS-health certificate."""
+    if os.name != "nt":
+        raise RuntimeError("Target physical disk inspection requires Windows.")
+    if first_disk == second_disk:
+        raise ValueError("Target media must be two distinct devices.")
+    config = json.loads(plan_path.read_text(encoding="utf-8"))
+    if config.get("schema") != "flashbridge-migration-plan-v1":
+        raise RuntimeError("Unknown migration plan schema.")
+    devices = {d.number: d for d in powershell_disks() if eligible(d)}
+    first, second = devices.get(first_disk), devices.get(second_disk)
+    if first is None or second is None:
+        raise RuntimeError("Target card identification is incomplete or unsafe.")
+    if first.size != config["target_a_bytes"] or second.size != config["target_b_bytes"]:
+        raise RuntimeError("Physical target card sizes do not match the approved plan.")
+    # Existing FlashBridge evidence-based detector; opens physical cards RO.
+    physical = discover_pair([first, second])
+    if physical.first.number != first_disk or physical.second.number != second_disk:
+        raise RuntimeError("Target A/B card order differs from supplied order.")
+    if not physical.read_write_safe or not physical.fat.backup_matches or not physical.fat.fsinfo_valid:
+        raise RuntimeError("Target FAT32 structural checks did not pass.")
+    if physical.volume_bytes <= config["source_fat32_bytes"]:
+        raise RuntimeError("Target FAT32 is not larger than original; space was not expanded.")
+    if physical.fat.end > config["target_combined_bytes"]:
+        raise RuntimeError("Target FAT32 exceeds physical target media bounds.")
+    # A first-4KiB hash alone may not uniquely identify a card (B may be
+    # empty); keep external card-label/serial custody as a mandatory owner gate.
+    return {
+        "schema": "flashbridge-target-inspection-v1",
+        "status": "TARGET_FAT32_GEOMETRY_VERIFIED_BOOT_AND_RW_UNVERIFIED",
+        "first_disk": first_disk, "second_disk": second_disk,
+        "first_bytes": first.size, "second_bytes": second.size,
+        "target_fat32_bytes": physical.volume_bytes,
+        "gain_fat32_bytes": physical.volume_bytes - config["source_fat32_bytes"],
+        "backup_boot_matches": physical.fat.backup_matches,
+        "fsinfo_valid": physical.fat.fsinfo_valid,
+        "fat_head_matches": physical.fat.fat_head_match,
+        "manual_target_card_identity_still_required": True,
+        "bootloader_and_cold_boot_unverified": True,
+        "complete_fat_integrity_unverified": True,
+        "no_media_writes_performed": True,
+    }
+
+
 def mount_source(image_a: Path, image_b: Path, letter: str):
     if os.name != "nt" or not is_elevated():
         raise RuntimeError("Mount requires elevated Windows and installed ImDisk.")
@@ -411,6 +456,11 @@ def main(argv=None):
     plan_cmd.add_argument("--target-a-bytes", type=int, required=True)
     plan_cmd.add_argument("--target-b-bytes", type=int, required=True)
     plan_cmd.add_argument("--output", type=Path, required=True)
+    target_cmd = sub.add_parser("check-target", help="RO validate already prepared larger JBOD")
+    target_cmd.add_argument("--plan", type=Path, required=True)
+    target_cmd.add_argument("--first-disk", type=int, required=True)
+    target_cmd.add_argument("--second-disk", type=int, required=True)
+    target_cmd.add_argument("--output", type=Path, required=True)
     mount = sub.add_parser("mount-source", help="Image-backed ImDisk RO mount for Commander")
     mount.add_argument("--image-a", type=Path, required=True)
     mount.add_argument("--image-b", type=Path, required=True)
@@ -433,6 +483,10 @@ def main(argv=None):
         write_json_new(args.output, migration_plan(args.image_a, args.image_b,
                             args.target_a_bytes, args.target_b_bytes))
         print("Plan written, status BLOCKED until target provisioning:", args.output)
+    elif args.command == "check-target":
+        result = check_provisioned_target(args.plan, args.first_disk, args.second_disk)
+        write_json_new(args.output, result)
+        print("Target read-only geometry checked; boot/RW remain unverified:", args.output)
     elif args.command == "mount-source":
         mount_source(args.image_a, args.image_b, args.letter)
     elif args.command == "manifest":
