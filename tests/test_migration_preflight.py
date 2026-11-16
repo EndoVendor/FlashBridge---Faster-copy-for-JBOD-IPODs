@@ -96,7 +96,7 @@ class MigrationPreflightTests(unittest.TestCase):
                 fa.seek(offset)
                 expected = fa.read(32) + fb.read(32)
             self.assertEqual(observed, expected)
-            self.assertEqual(observed, b\"A\"*32 + b\"B\"*32)
+            self.assertEqual(observed, b"A"*32 + b"B"*32)
             with self.assertRaises(PermissionError):
                 device.write_volume(0, b"\0" * 512)
         finally:
