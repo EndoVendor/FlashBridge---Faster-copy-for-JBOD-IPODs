@@ -1,6 +1,9 @@
 """No physical media or ImDisk: synthetic checks for migration preflight."""
 import hashlib
 import json
+import os
+from types import SimpleNamespace
+from unittest import mock
 from pathlib import Path
 import shutil
 import struct
@@ -139,6 +142,36 @@ class MigrationPreflightTests(unittest.TestCase):
             m.manifest_source(s,mf)
             self.assertFalse(m.verify_target(mf,t)["passed"])
             self.assertTrue(m.verify_target(mf,t,allow_extras=True)["passed"])
+
+
+    @unittest.skipUnless(os.name == "nt", "PowerShell disk inspection is Windows-only")
+    def test_provisioned_target_geometry_read_only_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/"plan.json"
+            g=1024**3
+            m.write_json_new(p, {
+                "schema":"flashbridge-migration-plan-v1",
+                "target_a_bytes":g, "target_b_bytes":g,
+                "target_combined_bytes":2*g,
+                "source_fat32_bytes":int(1.4*g),
+            })
+            first=SimpleNamespace(number=12,size=g)
+            second=SimpleNamespace(number=13,size=g)
+            fat=SimpleNamespace(backup_matches=True,fsinfo_valid=True,
+                                fat_head_match=True,end=2*g-8*1024**2)
+            observed=SimpleNamespace(first=first,second=second, fat=fat,
+                                     read_write_safe=True,volume_bytes=2*g-8*1024**2)
+            with mock.patch.object(m,"powershell_disks",return_value=[first,second]), \
+                 mock.patch.object(m,"eligible",return_value=True), \
+                 mock.patch.object(m,"discover_pair",return_value=observed):
+                report=m.check_provisioned_target(p,12,13)
+                self.assertGreater(report["gain_fat32_bytes"],0)
+                self.assertTrue(report["bootloader_and_cold_boot_unverified"])
+                self.assertTrue(report["no_media_writes_performed"])
+                with self.assertRaises(RuntimeError):
+                    m.check_provisioned_target(p,13,12)
+                with self.assertRaises(RuntimeError):
+                    m.check_provisioned_target(p,12,999)
 
     def test_no_manifest_into_mounted_source(self):
         with tempfile.TemporaryDirectory() as tmp:
