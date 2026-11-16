@@ -53,6 +53,9 @@ def _make_pair(folder: Path):
         f.seek(pstart+6*512); f.write(boot)
         f.seek(fat1); f.write(b"\xF8\xFF\xFF\x0F\xFF\xFF\xFF\x0F")
         f.seek(fat2); f.write(b"\xF8\xFF\xFF\x0F\xFF\xFF\xFF\x0F")
+    with a.open("r+b") as fa, b.open("r+b") as fb:
+        fa.seek(-32, 2); fa.write(b"A"*32)
+        fb.seek(0); fb.write(b"B"*32)
     for image in (a,b):
         m.write_json_new(m.capture_info_path(image), {
             "schema": m.CAPTURE_SCHEMA, "image_name": image.name,
@@ -93,6 +96,7 @@ class MigrationPreflightTests(unittest.TestCase):
                 fa.seek(offset)
                 expected = fa.read(32) + fb.read(32)
             self.assertEqual(observed, expected)
+            self.assertEqual(observed, b\"A\"*32 + b\"B\"*32)
             with self.assertRaises(PermissionError):
                 device.write_volume(0, b"\0" * 512)
         finally:
